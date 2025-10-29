@@ -1,0 +1,219 @@
+name: 🐛 Bug Fix
+description: Report a bug that needs to be fixed by coding agents
+title: "[BUG] - "
+labels: ["bug", "coding-agent"]
+projects: ["itsnothuy/1"]
+assignees:
+  - itsnothuy
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug Fix Template
+        
+        This template is designed for **coding agents** to fix bugs systematically.
+        
+        **Important**: This issue will be **auto-closed** when the fix PR is merged to `main`.
+
+  - type: input
+    id: bug-title
+    attributes:
+      label: Bug Title
+      description: Clear, concise description of the bug
+      placeholder: "e.g., Inspection creation returns 500 error for duplicate entries"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Level
+      description: Impact level of the bug
+      options:
+        - 🔴 Critical (Production Down)
+        - 🟠 High (Major Feature Broken)
+        - 🟡 Medium (Feature Partially Broken)
+        - 🟢 Low (Minor Issue)
+      default: 2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-service
+    attributes:
+      label: Affected Service
+      description: Which service has the bug?
+      options:
+        - api-gateway
+        - inspection-service
+        - inference-service
+        - artifact-service
+        - report-service
+        - database
+        - infrastructure
+        - multiple-services
+    validations:
+      required: true
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: Detailed description of the bug
+      placeholder: |
+        ## Current Behavior
+        What is currently happening that's incorrect?
+        
+        ## Expected Behavior
+        What should be happening instead?
+        
+        ## Impact
+        How does this affect users/system functionality?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the bug
+      placeholder: |
+        1. Step 1 (e.g., Send POST request to /v1/inspections)
+        2. Step 2 (e.g., Include duplicate lot_id/chip_id combination)
+        3. Step 3 (e.g., Observe response)
+        
+        **Expected**: Should return 409 Conflict with proper error message
+        **Actual**: Returns 500 Internal Server Error
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-details
+    attributes:
+      label: Error Details
+      description: Error messages, stack traces, logs
+      placeholder: |
+        ## Error Message
+        ```
+        Internal Server Error
+        ```
+        
+        ## Stack Trace/Logs
+        ```
+        [Paste relevant logs here]
+        ```
+        
+        ## Request/Response Examples
+        ```json
+        // Request
+        POST /v1/inspections
+        {
+          "lot_id": "LOT-2025-001",
+          "chip_id": "PCB-A1234",
+          "inspection_type": "visual"
+        }
+        
+        // Response (incorrect)
+        HTTP 500 Internal Server Error
+        ```
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Information
+      description: Environment where the bug occurs
+      placeholder: |
+        - Environment: [local/dev/staging/production]
+        - Service Version: [version number]
+        - Database: [PostgreSQL version]
+        - OS: [operating system]
+        - Browser/Client: [if applicable]
+
+  - type: textarea
+    id: root-cause-analysis
+    attributes:
+      label: Root Cause Analysis
+      description: Investigation findings (if known)
+      placeholder: |
+        ## Suspected Cause
+        - Database constraint violation not properly handled
+        - Missing try-catch block in inspection creation
+        - Incorrect error mapping in exception handler
+        
+        ## Code Location
+        - File: services/api-gateway/app/routers/inspections.py
+        - Function: create_inspection()
+        - Line: ~45-60
+        
+        ## Related Components
+        - Database constraint: unique_inspection_per_chip
+        - Error handler: app/middleware/error_handling.py
+
+  - type: textarea
+    id: fix-requirements
+    attributes:
+      label: Fix Requirements
+      description: Specific requirements for the fix
+      placeholder: |
+        ## Functional Requirements
+        - [ ] Handle IntegrityError for unique constraint violations
+        - [ ] Return 409 Conflict with proper error message structure
+        - [ ] Include details about conflicting fields in response
+        - [ ] Maintain existing functionality for valid requests
+        
+        ## Technical Requirements
+        - [ ] Follow error handling patterns from .github/copilot-instructions.md
+        - [ ] Use structured error responses matching OpenAPI spec
+        - [ ] Add appropriate logging for debugging
+        - [ ] Include correlation ID in error response
+        
+        ## Testing Requirements
+        - [ ] Add test case for duplicate inspection creation
+        - [ ] Verify correct error response format
+        - [ ] Test that valid requests still work
+        - [ ] Add integration test for database constraint
+
+  - type: checkboxes
+    id: fix-checklist
+    attributes:
+      label: Pre-Fix Checklist
+      description: Verify these before starting the fix
+      options:
+        - label: I can reproduce the bug consistently
+          required: true
+        - label: I have identified the root cause
+          required: true
+        - label: I understand the expected behavior
+          required: true
+        - label: I have reviewed error handling patterns
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🤖 For Coding Agents
+        
+        ### Fix Workflow:
+        1. **Reproduce Bug**: Confirm the issue exists
+        2. **Root Cause Analysis**: Identify the exact problem
+        3. **Implement Fix**: Create targeted, minimal fix
+        4. **Add Tests**: Write tests to prevent regression
+        5. **Verify**: Ensure fix works and doesn't break anything else
+        6. **Create PR**: Submit PR with "Closes #[issue-number]" in description
+        
+        ### Quality Standards:
+        - ✅ Minimal, targeted fix that addresses root cause
+        - ✅ Comprehensive error handling following established patterns
+        - ✅ Proper logging for debugging future issues
+        - ✅ Regression tests to prevent future occurrences
+        - ✅ No breaking changes to existing functionality
+        - ✅ Follows coding guidelines and patterns
+        
+        ### Auto-Close Process:
+        - Include "Closes #[this-issue-number]" in the PR description
+        - Issue will automatically close when PR is merged to `main`
+        
+        ---
+        
+        **Need Help?** Check `.github/copilot-instructions.md` for debugging and error handling patterns.

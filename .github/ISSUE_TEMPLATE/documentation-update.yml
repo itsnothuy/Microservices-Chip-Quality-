@@ -1,0 +1,67 @@
+name: 📚 Documentation Update
+description: Update or create documentation
+title: "[DOCS] - "
+labels: ["documentation", "coding-agent"]
+projects: ["itsnothuy/1"]
+assignees:
+  - itsnothuy
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📚 Documentation Update Template
+        
+        This template is for updating or creating documentation.
+        
+        **Important**: This issue will be **auto-closed** when the documentation PR is merged to `main`.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs to be updated?
+      options:
+        - API Documentation (OpenAPI)
+        - Architecture Documentation
+        - Code Comments
+        - README Files
+        - ADR (Architectural Decision Record)
+        - Database Schema Documentation
+        - Deployment Guide
+        - User Manual
+        - Developer Guide
+    validations:
+      required: true
+
+  - type: textarea
+    id: doc-description
+    attributes:
+      label: Documentation Requirements
+      description: What needs to be documented or updated?
+      placeholder: |
+        ## What needs to be documented?
+        - Clear description of what documentation is needed
+        - Target audience (developers, operators, users)
+        - Current gaps or outdated information
+        
+        ## Scope
+        - [ ] New documentation
+        - [ ] Update existing documentation
+        - [ ] Fix errors in documentation
+        - [ ] Add examples/tutorials
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific criteria for completion
+      placeholder: |
+        - [ ] Documentation is accurate and up-to-date
+        - [ ] Examples are provided where relevant
+        - [ ] Follows project documentation standards
+        - [ ] Reviewed for clarity and completeness
+    validations:
+      required: true

@@ -1,0 +1,203 @@
+name: 🚀 Feature Implementation
+description: Create a new feature implementation issue for coding agents
+title: "[FEATURE] - "
+labels: ["enhancement", "coding-agent"]
+projects: ["itsnothuy/1"]
+assignees:
+  - itsnothuy
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🎯 Feature Implementation Template
+        
+        This template is designed for **coding agents** (like Sonnet 4) to implement features systematically.
+        
+        **Important**: This issue will be **auto-closed** when the implementation PR is merged to `main`.
+
+  - type: input
+    id: feature-title
+    attributes:
+      label: Feature Title
+      description: Clear, concise feature name
+      placeholder: "e.g., Implement POST /v1/inspections endpoint"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Target Service
+      description: Which service does this feature belong to?
+      options:
+        - api-gateway
+        - inspection-service
+        - inference-service
+        - artifact-service
+        - report-service
+        - shared/common
+        - infrastructure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: Implementation priority
+      options:
+        - 🔴 Critical (P0)
+        - 🟠 High (P1)
+        - 🟡 Medium (P2)
+        - 🟢 Low (P3)
+      default: 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: Detailed description of what needs to be implemented
+      placeholder: |
+        ## What needs to be implemented?
+        - Clear description of the feature
+        - Expected behavior
+        - Business requirements
+        
+        ## Success Criteria
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical-requirements
+    attributes:
+      label: Technical Requirements
+      description: Technical specifications and constraints
+      placeholder: |
+        ## API Specification
+        - Endpoint: POST /v1/inspections
+        - Authentication: OAuth2 with `inspections:write` scope
+        - Request/Response models: See OpenAPI spec
+        
+        ## Implementation Guidelines
+        - Follow FastAPI patterns from .github/copilot-instructions.md
+        - Use async/await for all I/O operations
+        - Implement comprehensive error handling
+        - Add OpenTelemetry tracing
+        - Include structured logging
+        
+        ## Database Requirements
+        - Tables: inspections, related foreign keys
+        - Constraints: Unique (lot_id, chip_id, inspection_type)
+        - Indexes: See docs/database/schema.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific criteria that must be met for completion
+      placeholder: |
+        ## Functional Requirements
+        - [ ] Endpoint accepts valid inspection data and returns 201 Created
+        - [ ] Validates required fields (lot_id, chip_id, inspection_type)
+        - [ ] Enforces unique constraint for (lot_id, chip_id, inspection_type)
+        - [ ] Returns appropriate error codes (400, 401, 403, 409, 422)
+        - [ ] Supports idempotency with Idempotency-Key header
+        
+        ## Technical Requirements
+        - [ ] Follows OpenAPI specification exactly
+        - [ ] Implements OAuth2 scope validation
+        - [ ] Includes comprehensive error handling
+        - [ ] Adds OpenTelemetry tracing spans
+        - [ ] Uses structured logging with correlation IDs
+        - [ ] Publishes Kafka events for inspection.created
+        
+        ## Quality Requirements
+        - [ ] Unit tests with >90% coverage
+        - [ ] Integration tests for API endpoints
+        - [ ] API tests matching OpenAPI examples
+        - [ ] Performance tests for concurrent requests
+        - [ ] Security tests for authorization
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: Additional context and guidance for the coding agent
+      placeholder: |
+        ## Architecture References
+        - Main architecture: docs/architecture.md (sections X.Y)
+        - API specification: docs/api/openapi.yaml
+        - Database schema: docs/database/schema.md
+        - Coding guidelines: .github/copilot-instructions.md
+        
+        ## Related Components
+        - Authentication: services/api-gateway/app/core/auth.py
+        - Database models: TBD in this implementation
+        - Event publishing: TBD in this implementation
+        
+        ## Dependencies
+        - Depends on: [List any blocking issues]
+        - Blocks: [List any dependent issues]
+        
+        ## Testing Strategy
+        - Unit tests: Test business logic and validation
+        - Integration tests: Test database operations
+        - API tests: Test endpoint behavior and responses
+        - Load tests: Test concurrent request handling
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-Implementation Checklist
+      description: Verify these before starting implementation
+      options:
+        - label: I have reviewed the architecture documentation
+          required: true
+        - label: I have checked the OpenAPI specification
+          required: true
+        - label: I have reviewed the coding guidelines
+          required: true
+        - label: I have confirmed the database schema requirements
+          required: true
+        - label: I understand the acceptance criteria
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🤖 For Coding Agents
+        
+        ### Implementation Workflow:
+        1. **Read Documentation**: Review all referenced docs thoroughly
+        2. **Follow Patterns**: Use established patterns from `.github/copilot-instructions.md`
+        3. **Implement Feature**: Create comprehensive, production-ready code
+        4. **Add Tests**: Write thorough tests for all scenarios
+        5. **Update Docs**: Update any relevant documentation
+        6. **Create PR**: Submit PR with "Closes #[issue-number]" in description
+        
+        ### Quality Standards:
+        - ✅ Follow FastAPI and async patterns
+        - ✅ Implement comprehensive error handling
+        - ✅ Add OpenTelemetry tracing and structured logging
+        - ✅ Write thorough tests (unit, integration, API)
+        - ✅ Follow security best practices
+        - ✅ Match OpenAPI specification exactly
+        - ✅ Use proper type hints and Pydantic models
+        
+        ### Auto-Close Process:
+        - When you create a PR, include "Closes #[this-issue-number]" in the PR description
+        - The issue will automatically close when the PR is merged to `main`
+        
+        ---
+        
+        **Need Help?** Check `.github/copilot-instructions.md` for comprehensive implementation guidelines.

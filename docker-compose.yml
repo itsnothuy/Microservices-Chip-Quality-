@@ -1,0 +1,552 @@
+version: '3.8'
+
+# 🐳 Docker Compose for Local Development
+# Complete chip quality platform with all dependencies
+
+services:
+  # ================================
+  # 🗄️ DATABASE SERVICES
+  # ================================
+  
+  postgresql:
+    image: timescale/timescaledb:latest-pg15
+    container_name: chip-quality-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chip_quality
+      POSTGRES_USER: chip_quality_user
+      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./scripts/create-extensions.sql:/docker-entrypoint-initdb.d/02-extensions.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - chip-quality-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chip_quality_user -d chip_quality"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: chip-quality-redis
+    restart: unless-stopped
+    command: redis-server --requirepass dev_redis_password --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - chip-quality-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ================================
+  # 📡 MESSAGE BROKER
+  # ================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: chip-quality-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - chip-quality-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: chip-quality-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 3
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    ports:
+      - "9092:9092"
+    networks:
+      - chip-quality-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    container_name: chip-quality-schema-registry
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8081:8081"
+    networks:
+      - chip-quality-network
+
+  # ================================
+  # 🤖 ML INFERENCE
+  # ================================
+
+  triton-server:
+    image: nvcr.io/nvidia/tritonserver:24.01-py3
+    container_name: chip-quality-triton
+    restart: unless-stopped
+    command: |
+      tritonserver
+      --model-repository=/models
+      --allow-http=true
+      --allow-grpc=true
+      --allow-metrics=true
+      --allow-gpu-metrics=true
+      --log-verbose=1
+    volumes:
+      - ./models:/models
+      - triton_cache:/tmp/triton-cache
+    ports:
+      - "8000:8000"  # HTTP
+      - "8001:8001"  # gRPC
+      - "8002:8002"  # Metrics
+    networks:
+      - chip-quality-network
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v2/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 📊 MONITORING STACK
+  # ================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: chip-quality-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - chip-quality-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: chip-quality-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_SECURITY_ALLOW_EMBEDDING: true
+      GF_AUTH_ANONYMOUS_ENABLED: false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: chip-quality-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"  # Web UI
+      - "14250:14250"  # gRPC
+      - "14268:14268"  # HTTP
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - chip-quality-network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: chip-quality-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - chip-quality-network
+
+  # ================================
+  # 📁 OBJECT STORAGE
+  # ================================
+
+  minio:
+    image: minio/minio:latest
+    container_name: chip-quality-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_admin
+      MINIO_ROOT_PASSWORD: minio_password_123
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    networks:
+      - chip-quality-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Create MinIO buckets
+  minio-client:
+    image: minio/mc:latest
+    container_name: chip-quality-minio-client
+    depends_on:
+      - minio
+    networks:
+      - chip-quality-network
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minio_admin minio_password_123;
+      /usr/bin/mc mb myminio/chip-quality-artifacts --ignore-existing;
+      /usr/bin/mc mb myminio/chip-quality-models --ignore-existing;
+      /usr/bin/mc mb myminio/chip-quality-backups --ignore-existing;
+      /usr/bin/mc policy set public myminio/chip-quality-artifacts;
+      exit 0;
+      "
+
+  # ================================
+  # 🏗️ APPLICATION SERVICES
+  # ================================
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: chip-quality-api-gateway
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://chip_quality_user:dev_password_123@postgresql:5432/chip_quality
+      - REDIS_URL=redis://:dev_redis_password@redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - TRITON_SERVER_URL=triton-server:8001
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY_ID=minio_admin
+      - S3_SECRET_ACCESS_KEY=minio_password_123
+      - JWT_SECRET_KEY=dev-jwt-secret-key-for-local-development-only
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./services/api-gateway:/app
+      - ./shared:/app/shared
+    ports:
+      - "8000:8000"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - postgresql
+      - redis
+      - kafka
+      - triton-server
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  inspection-service:
+    build:
+      context: ./services/inspection-service
+      dockerfile: Dockerfile
+    container_name: chip-quality-inspection-service
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://chip_quality_user:dev_password_123@postgresql:5432/chip_quality
+      - REDIS_URL=redis://:dev_redis_password@redis:6379/1
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./services/inspection-service:/app
+      - ./shared:/app/shared
+    ports:
+      - "8001:8000"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - postgresql
+      - redis
+      - kafka
+
+  inference-service:
+    build:
+      context: ./services/inference-service
+      dockerfile: Dockerfile
+    container_name: chip-quality-inference-service
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://chip_quality_user:dev_password_123@postgresql:5432/chip_quality
+      - REDIS_URL=redis://:dev_redis_password@redis:6379/2
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - TRITON_SERVER_URL=triton-server:8001
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./services/inference-service:/app
+      - ./shared:/app/shared
+    ports:
+      - "8002:8000"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - postgresql
+      - redis
+      - kafka
+      - triton-server
+
+  artifact-service:
+    build:
+      context: ./services/artifact-service
+      dockerfile: Dockerfile
+    container_name: chip-quality-artifact-service
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://chip_quality_user:dev_password_123@postgresql:5432/chip_quality
+      - REDIS_URL=redis://:dev_redis_password@redis:6379/3
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_BUCKET_NAME=chip-quality-artifacts
+      - S3_ACCESS_KEY_ID=minio_admin
+      - S3_SECRET_ACCESS_KEY=minio_password_123
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./services/artifact-service:/app
+      - ./shared:/app/shared
+    ports:
+      - "8003:8000"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - postgresql
+      - redis
+      - minio
+
+  report-service:
+    build:
+      context: ./services/report-service
+      dockerfile: Dockerfile
+    container_name: chip-quality-report-service
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://chip_quality_user:dev_password_123@postgresql:5432/chip_quality
+      - REDIS_URL=redis://:dev_redis_password@redis:6379/4
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_BUCKET_NAME=chip-quality-artifacts
+      - S3_ACCESS_KEY_ID=minio_admin
+      - S3_SECRET_ACCESS_KEY=minio_password_123
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./services/report-service:/app
+      - ./shared:/app/shared
+    ports:
+      - "8004:8000"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - postgresql
+      - redis
+      - kafka
+      - minio
+
+  # ================================
+  # 🧪 DEVELOPMENT TOOLS
+  # ================================
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: chip-quality-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@chipquality.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - postgresql
+    profiles:
+      - tools
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: chip-quality-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: dev_redis_password
+    ports:
+      - "8082:8081"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - redis
+    profiles:
+      - tools
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: chip-quality-kafka-ui
+    restart: unless-stopped
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    ports:
+      - "8083:8080"
+    networks:
+      - chip-quality-network
+    depends_on:
+      - kafka
+      - schema-registry
+    profiles:
+      - tools
+
+  # ================================
+  # 🧪 TEST DATA GENERATOR
+  # ================================
+
+  test-data-generator:
+    build:
+      context: ./tools
+      dockerfile: Dockerfile.test-data
+    container_name: chip-quality-test-data
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://chip_quality_user:dev_password_123@postgresql:5432/chip_quality
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY_ID=minio_admin
+      - S3_SECRET_ACCESS_KEY=minio_password_123
+    networks:
+      - chip-quality-network
+    depends_on:
+      - postgresql
+      - kafka
+      - minio
+    profiles:
+      - tools
+    command: |
+      python -c "
+      import asyncio
+      from generate_demo_data import generate_sample_data
+      asyncio.run(generate_sample_data(scale='small'))
+      print('✅ Test data generation completed')
+      "
+
+# ================================
+# 📦 VOLUMES
+# ================================
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  kafka_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  minio_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+  triton_cache:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# ================================
+# 🌐 NETWORKS
+# ================================
+
+networks:
+  chip-quality-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ================================
+# 📋 PROFILES FOR DIFFERENT ENVIRONMENTS
+# ================================
+
+# Usage examples:
+# docker-compose up                          # Start core services
+# docker-compose --profile tools up         # Start with development tools
+# docker-compose --profile monitoring up    # Start with full monitoring

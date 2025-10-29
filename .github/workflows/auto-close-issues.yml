@@ -1,0 +1,52 @@
+name: Auto-close Issues on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  auto-close-issues:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Auto-close linked issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // This action automatically runs when a PR is merged to main
+            // GitHub automatically closes issues referenced with "Closes #123" syntax
+            console.log('PR merged - GitHub will auto-close referenced issues');
+            
+            // Log the PR details for tracking
+            const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
+            const prBody = context.payload.pull_request.body || '';
+            
+            console.log(`PR #${prNumber}: ${prTitle}`);
+            
+            // Extract issue references for logging
+            const issueReferences = prBody.match(/(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi);
+            
+            if (issueReferences) {
+              console.log('Issues that will be auto-closed:', issueReferences);
+              
+              // Add a comment to the PR acknowledging the auto-close
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: `🎉 **PR Merged Successfully!**\n\n✅ The following issues will be automatically closed:\n${issueReferences.map(ref => `- ${ref}`).join('\n')}\n\n🤖 *This action was automated via GitHub's built-in issue linking.*`
+              });
+            } else {
+              console.log('No issue references found in PR body');
+            }
+
+      - name: Notify on successful auto-close
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Optional: Add any additional notifications or integrations here
+            // For example, updating project boards, notifying external systems, etc.
+            console.log('Auto-close workflow completed successfully');
