@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ingestion-svc"
+dynamic = ["version"]
+description = "Ingestion Service for Chip Quality Platform"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Platform Team", email = "platform@yourcompany.com" },
+]
+
+dependencies = [
+    # FastAPI and ASGI
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    
+    # Database
+    "asyncpg>=0.28.0",
+    "sqlalchemy[asyncio]>=2.0.23",
+    "alembic>=1.12.0",
+    
+    # Event streaming
+    "aiokafka>=0.9.0",
+    "confluent-kafka>=2.3.0",
+    
+    # Async HTTP client
+    "httpx>=0.25.0",
+    
+    # Validation and configuration
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    
+    # Observability
+    "opentelemetry-api>=1.21.0",
+    "opentelemetry-sdk>=1.21.0",
+    "opentelemetry-instrumentation-fastapi>=0.42b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.42b0",
+    "opentelemetry-instrumentation-httpx>=0.42b0",
+    "opentelemetry-exporter-otlp>=1.21.0",
+    "prometheus-client>=0.19.0",
+    "structlog>=23.2.0",
+    
+    # Background tasks
+    "celery[redis]>=5.3.0",
+    "redis>=5.0.0",
+    "hiredis>=2.2.0",
+    
+    # Utilities
+    "click>=8.1.0",
+    "python-dateutil>=2.8.0",
+    "ulid-py>=1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.0",
+    "factory-boy>=3.3.0",
+    "faker>=20.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/chip-quality-platform"
+Repository = "https://github.com/your-org/chip-quality-platform.git"
+
+[tool.hatch.version]
+path = "app/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

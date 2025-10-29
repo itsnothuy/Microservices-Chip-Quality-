@@ -1,0 +1,1348 @@
+openapi: 3.1.0
+info:
+  title: Chip Quality Platform API
+  description: |
+    # Manufacturing Quality Inspection Platform API
+    
+    Production-grade REST API for semiconductor manufacturing quality control workflows with ML-powered defect detection.
+    
+    ## 🚀 Key Features
+    - **🔄 Idempotency**: All mutations support Stripe-style idempotency keys with 24h retention
+    - **📖 Pagination**: Cursor-based pagination for stable, consistent results
+    - **🔐 Security**: OAuth2 + JWT with fine-grained scope-based authorization
+    - **⚡ Async Processing**: Non-blocking inference with real-time event updates
+    - **📊 Observability**: Comprehensive tracing, metrics, and structured logging
+    - **🛡️ Rate Limiting**: Intelligent rate limiting with token bucket algorithm
+    - **🔧 Resilience**: Circuit breakers, retries, and graceful degradation
+    
+    ## 🔐 Authentication & Authorization
+    
+    ### Token-Based Authentication
+    All endpoints (except `/v1/token`) require a JWT bearer token:
+    ```http
+    Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+    ```
+    
+    ### OAuth2 Scopes
+    The API uses fine-grained scopes for authorization:
+    - `inspections:read` - View inspection data
+    - `inspections:write` - Create and modify inspections
+    - `defects:read` - View defect information
+    - `defects:write` - Modify defect data
+    - `reports:read` - Access reports and analytics
+    - `reports:write` - Generate custom reports
+    - `artifacts:read` - Download files and images
+    - `artifacts:write` - Upload inspection artifacts
+    - `inference:execute` - Trigger ML inference operations
+    - `admin:manage` - Administrative functions
+    
+    ### Role-Based Access
+    Common role combinations:
+    - **Operator**: `inspections:read,write`, `artifacts:read,write`, `defects:read`
+    - **Quality Engineer**: `inspections:*`, `defects:*`, `reports:read,write`, `artifacts:*`
+    - **Manager**: `inspections:read`, `defects:read`, `reports:*`
+    - **Admin**: All scopes
+    
+    ## 🔄 Idempotency
+    
+    POST, PUT, and PATCH endpoints support idempotency keys for safe retries:
+    ```http
+    Idempotency-Key: user-12345_2025-10-29T10:30:00Z_inspection-create
+    ```
+    
+    **Key Properties**:
+    - Must be unique per endpoint and user
+    - Retained for 24 hours
+    - Payload hash validation prevents key reuse with different data
+    - Returns same response code and body for replayed requests
+    
+    ## 📖 Pagination
+    
+    List endpoints use cursor-based pagination for consistent results:
+    ```http
+    GET /v1/inspections?cursor=eyJjcmVhdGVkX2F0IjoiMjAyNS0xMC0yOVQxMDozMDowMFoifQ&limit=20
+    ```
+    
+    **Response includes**:
+    - `data`: Array of results
+    - `has_more`: Boolean indicating if more results exist
+    - `next_cursor`: Cursor for next page (null if no more results)
+    
+    ## ⚠️ Error Handling
+    
+    The API uses standard HTTP status codes with structured error responses:
+    
+    ```json
+    {
+      "error": {
+        "code": "validation_error",
+        "message": "Request validation failed",
+        "details": {
+          "field": "chip_id",
+          "constraint": "must be alphanumeric, 3-50 characters"
+        },
+        "request_id": "req_1234567890abcdef",
+        "timestamp": "2025-10-29T10:30:00.000Z"
+      }
+    }
+    ```
+    
+    ### Common Error Codes
+    - `validation_error` - Invalid request data
+    - `authentication_required` - Missing or invalid token
+    - `authorization_failed` - Insufficient permissions
+    - `rate_limit_exceeded` - Too many requests
+    - `resource_not_found` - Requested resource doesn't exist
+    - `conflict` - Resource already exists or state conflict
+    - `idempotency_conflict` - Idempotency key reused with different payload
+    - `external_service_error` - Downstream service failure
+    - `inference_timeout` - ML inference took too long
+    
+    ## 🔄 Async Operations
+    
+    Long-running operations (like ML inference) return immediately with tracking information:
+    ```json
+    {
+      "operation_id": "op_1234567890abcdef",
+      "status": "queued",
+      "estimated_completion": "2025-10-29T10:32:00.000Z",
+      "progress_url": "/v1/operations/op_1234567890abcdef"
+    }
+    ```
+    
+    ## 📊 Rate Limiting
+    
+    Endpoints have different rate limits based on computational cost:
+    - **Standard endpoints**: 100 requests/minute
+    - **Authentication**: 10 requests/minute
+    - **File uploads**: 20 requests/5 minutes
+    - **ML inference**: 50 requests/minute
+    
+    Rate limit headers are included in responses:
+    ```http
+    X-RateLimit-Limit: 100
+    X-RateLimit-Remaining: 87
+    X-RateLimit-Reset: 1698580800
+    ```
+    
+    ## 📈 Monitoring & Observability
+    
+    All requests include correlation headers for distributed tracing:
+    ```http
+    X-Correlation-ID: 01234567-89ab-cdef-0123-456789abcdef
+    X-Request-ID: req_1234567890abcdef
+    ```
+    
+  version: 1.0.0
+  contact:
+    name: Platform Engineering Team
+    email: platform-team@chipquality.com
+    url: https://github.com/chipquality/platform
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://chipquality.com/terms
+
+servers:
+  - url: https://api.chipquality.com/v1
+    description: Production server
+  - url: https://staging-api.chipquality.com/v1  
+    description: Staging server
+  - url: https://dev-api.chipquality.com/v1
+    description: Development server
+  - url: http://localhost:8080/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Authentication
+    description: |
+      Token-based authentication using OAuth2 + JWT.
+      Supports refresh tokens and scope-based authorization.
+  - name: Inspections
+    description: |
+      Core inspection lifecycle management.
+      Create, track, and manage quality control inspections.
+  - name: Defects
+    description: |
+      Defect detection and classification results.
+      Manage ML-generated and manual defect annotations.
+  - name: Artifacts
+    description: |
+      File storage and retrieval for inspection assets.
+      Images, videos, measurements, and documentation.
+  - name: Inference
+    description: |
+      Machine learning inference operations.
+      Trigger AI-powered defect detection and classification.
+  - name: Reports
+    description: |
+      Analytics, reporting, and business intelligence.
+      Generate insights from inspection and defect data.
+  - name: Operations
+    description: |
+      Long-running operation tracking and management.
+      Monitor async processes and system health.
+
+paths:
+  # ===== AUTHENTICATION =====
+  /token:
+    post:
+      summary: Obtain JWT access token
+      description: |
+        OAuth2 password flow for authentication. Returns a JWT access token
+        for API access with specified scopes.
+        
+        **Security Note**: This endpoint has strict rate limiting (10 req/min)
+        to prevent brute force attacks.
+        
+        **Token Expiration**: Access tokens expire after 1 hour.
+        Use refresh tokens for long-lived access.
+      operationId: getToken
+      security: []
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - grant_type
+              properties:
+                username:
+                  type: string
+                  description: User identifier
+                  example: "operator1"
+                  minLength: 3
+                  maxLength: 50
+                password:
+                  type: string
+                  format: password
+                  description: User password
+                  example: "secure_password_123"
+                  minLength: 8
+                grant_type:
+                  type: string
+                  enum: [password, refresh_token]
+                  description: OAuth2 grant type
+                  example: password
+                refresh_token:
+                  type: string
+                  description: Refresh token for grant_type=refresh_token
+                  example: "rt_1234567890abcdef"
+                scope:
+                  type: string
+                  description: Space-separated list of requested scopes
+                  example: "inspections:read inspections:write defects:read"
+            examples:
+              password_grant:
+                summary: Password Grant
+                value:
+                  username: operator1
+                  password: secure_password_123
+                  grant_type: password
+                  scope: "inspections:read inspections:write artifacts:read"
+              refresh_token:
+                summary: Refresh Token
+                value:
+                  grant_type: refresh_token
+                  refresh_token: "rt_1234567890abcdef"
+      responses:
+        '200':
+          description: Token generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                success:
+                  summary: Successful token response
+                  value:
+                    access_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    token_type: "Bearer"
+                    expires_in: 3600
+                    refresh_token: "rt_1234567890abcdef"
+                    scope: "inspections:read inspections:write defects:read"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  # ===== INSPECTIONS =====
+  /inspections:
+    post:
+      summary: Create new inspection
+      description: |
+        Creates a new inspection record for quality control workflow.
+        This endpoint is idempotent when used with the `Idempotency-Key` header.
+        
+        **Typical Workflow**:
+        1. Create inspection (this endpoint)
+        2. Upload artifacts → `POST /inspections/{id}/artifacts`
+        3. Trigger inference → `POST /inspections/{id}/infer`
+        4. Check results → `GET /inspections/{id}`
+        5. Generate report → `POST /reports`
+        
+        **Business Rules**:
+        - Each (lot_id, chip_id, inspection_type) combination must be unique
+        - Inspection priority affects ML inference queue position
+        - Metadata can store custom key-value pairs for workflow integration
+      operationId: createInspection
+      tags:
+        - Inspections
+      security:
+        - bearerAuth: [inspections:write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectionCreate'
+            examples:
+              visual_inspection:
+                summary: Visual PCB Inspection
+                value:
+                  lot_id: "LOT-2025-001"
+                  chip_id: "PCB-A1234"
+                  inspection_type: "visual"
+                  priority: 5
+                  metadata:
+                    station_id: "STATION-01"
+                    operator: "john.doe"
+                    shift: "morning"
+              electrical_test:
+                summary: Electrical Testing
+                value:
+                  lot_id: "LOT-2025-002"
+                  chip_id: "CHIP-B5678"
+                  inspection_type: "electrical"
+                  priority: 8
+                  metadata:
+                    test_program: "ELECTRICAL_V2.1"
+                    voltage_level: "3.3V"
+      responses:
+        '201':
+          description: Inspection created successfully
+          headers:
+            Location:
+              description: URL of the created inspection
+              schema:
+                type: string
+                format: uri
+                example: "/v1/inspections/550e8400-e29b-41d4-a716-446655440000"
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inspection'
+        '200':
+          description: Idempotent response - inspection already exists with same data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inspection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      summary: List inspections with filtering and pagination
+      description: |
+        Retrieve a paginated list of inspections with optional filtering.
+        Uses cursor-based pagination for consistent results.
+        
+        **Filtering Options**:
+        - By status (pending, in_progress, completed, failed)
+        - By chip_id (exact match)
+        - By lot_id (exact match)
+        - By inspection_type
+        - By date range (created_at)
+        
+        **Sorting**: Results are sorted by created_at DESC for consistent pagination.
+      operationId: listInspections
+      tags:
+        - Inspections
+      security:
+        - bearerAuth: [inspections:read]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/CorrelationId'
+        - name: status
+          in: query
+          description: Filter by inspection status
+          schema:
+            $ref: '#/components/schemas/InspectionStatus'
+          example: pending
+        - name: chip_id
+          in: query
+          description: Filter by chip ID (exact match)
+          schema:
+            type: string
+            maxLength: 100
+          example: "PCB-A1234"
+        - name: lot_id
+          in: query
+          description: Filter by lot ID (exact match)
+          schema:
+            type: string
+            maxLength: 100
+          example: "LOT-2025-001"
+        - name: inspection_type
+          in: query
+          description: Filter by inspection type
+          schema:
+            $ref: '#/components/schemas/InspectionType'
+          example: visual
+        - name: created_after
+          in: query
+          description: Filter inspections created after this timestamp
+          schema:
+            type: string
+            format: date-time
+          example: "2025-10-29T00:00:00Z"
+        - name: created_before
+          in: query
+          description: Filter inspections created before this timestamp
+          schema:
+            type: string
+            format: date-time
+          example: "2025-10-29T23:59:59Z"
+      responses:
+        '200':
+          description: Paginated list of inspections
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Inspection'
+
+  /inspections/{inspection_id}:
+    get:
+      summary: Get inspection details
+      description: |
+        Retrieve detailed information about a specific inspection,
+        including current status, metadata, and associated defects.
+      operationId: getInspection
+      tags:
+        - Inspections
+      security:
+        - bearerAuth: [inspections:read]
+      parameters:
+        - $ref: '#/components/parameters/InspectionId'
+        - $ref: '#/components/parameters/CorrelationId'
+        - name: include_defects
+          in: query
+          description: Include associated defects in response
+          schema:
+            type: boolean
+            default: false
+          example: true
+      responses:
+        '200':
+          description: Inspection details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InspectionDetailed'
+
+  /inspections/{inspection_id}/artifacts:
+    post:
+      summary: Get presigned URL for artifact upload
+      description: |
+        Generate a presigned URL for secure direct upload to object storage.
+        Supports images, videos, measurements, and documentation files.
+        
+        **Upload Flow**:
+        1. Call this endpoint to get presigned URL
+        2. Use returned URL to upload file directly to storage
+        3. File is automatically linked to inspection
+        
+        **Supported Formats**:
+        - Images: JPEG, PNG, TIFF (max 50MB)
+        - Videos: MP4, AVI (max 500MB)  
+        - Data: JSON, CSV, TXT (max 10MB)
+      operationId: createArtifactUpload
+      tags:
+        - Artifacts
+      security:
+        - bearerAuth: [artifacts:write]
+      parameters:
+        - $ref: '#/components/parameters/InspectionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactUploadRequest'
+      responses:
+        '200':
+          description: Presigned URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactUploadResponse'
+
+  /inspections/{inspection_id}/infer:
+    post:
+      summary: Trigger ML inference
+      description: |
+        Queue an ML inference job for defect detection and classification.
+        This is an asynchronous operation that returns immediately with
+        operation tracking information.
+        
+        **Process Flow**:
+        1. Request queued with priority handling
+        2. Artifacts downloaded from storage
+        3. ML models process images/data
+        4. Results stored and events published
+        5. Inspection status updated to 'completed'
+        
+        **Model Selection**: Automatically selects optimal model based on
+        inspection_type and artifact characteristics.
+      operationId: triggerInference
+      tags:
+        - Inference
+      security:
+        - bearerAuth: [inference:execute]
+      parameters:
+        - $ref: '#/components/parameters/InspectionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceRequest'
+      responses:
+        '202':
+          description: Inference request queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceResponse'
+
+  # ===== DEFECTS =====
+  /defects:
+    get:
+      summary: List defects with filtering
+      description: |
+        Retrieve defects across all inspections with advanced filtering
+        and aggregation options. Useful for quality analytics and reporting.
+      operationId: listDefects
+      tags:
+        - Defects
+      security:
+        - bearerAuth: [defects:read]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/CorrelationId'
+        - name: defect_type
+          in: query
+          description: Filter by defect type
+          schema:
+            $ref: '#/components/schemas/DefectType'
+        - name: severity
+          in: query
+          description: Filter by severity level
+          schema:
+            $ref: '#/components/schemas/DefectSeverity'
+      responses:
+        '200':
+          description: Defects retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Defect'
+
+  # ===== REPORTS =====
+  /reports:
+    post:
+      summary: Generate custom report
+      description: |
+        Generate analytics reports with custom parameters and filters.
+        Supports multiple output formats and scheduled delivery.
+        
+        **Report Types**:
+        - `defect_summary` - Aggregated defect statistics
+        - `inspection_throughput` - Production metrics over time  
+        - `quality_trends` - Quality KPIs and trends
+        - `detailed_analysis` - Comprehensive inspection details
+      operationId: generateReport
+      tags:
+        - Reports
+      security:
+        - bearerAuth: [reports:write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '202':
+          description: Report generation queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+
+  # ===== OPERATIONS =====
+  /operations/{operation_id}:
+    get:
+      summary: Get operation status
+      description: |
+        Check the status of long-running operations like ML inference
+        or report generation. Includes progress information and results.
+      operationId: getOperation
+      tags:
+        - Operations
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OperationId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Operation status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+
+  # ===== HEALTH & METRICS =====
+  /health:
+    get:
+      summary: Health check endpoint
+      description: |
+        Service health status for load balancer and monitoring.
+        Does not require authentication.
+      operationId: healthCheck
+      security: []
+      tags:
+        - Operations
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+# ===== COMPONENTS =====
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from /token endpoint.
+        Include in Authorization header: `Bearer <token>`
+
+  parameters:
+    InspectionId:
+      name: inspection_id
+      in: path
+      required: true
+      description: Unique inspection identifier
+      schema:
+        type: string
+        format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    OperationId:
+      name: operation_id
+      in: path
+      required: true
+      description: Unique operation identifier
+      schema:
+        type: string
+        pattern: '^op_[a-zA-Z0-9]{16}$'
+      example: "op_1234567890abcdef"
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Unique key for idempotent operations. Recommended format:
+        `{user_id}_{timestamp}_{operation}` (max 255 chars)
+      schema:
+        type: string
+        maxLength: 255
+        pattern: '^[a-zA-Z0-9_-]+$'
+      example: "user123_2025-10-29T10:30:00Z_create-inspection"
+
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Request correlation ID for distributed tracing
+      schema:
+        type: string
+        format: uuid
+      example: "01234567-89ab-cdef-0123-456789abcdef"
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        Pagination cursor from previous response.
+        Opaque string - do not attempt to decode.
+      schema:
+        type: string
+        maxLength: 1000
+      example: "eyJjcmVhdGVkX2F0IjoiMjAyNS0xMC0yOVQxMDozMDowMFoifQ"
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of results per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+
+  headers:
+    X-Request-ID:
+      description: Unique request identifier for tracking and support
+      schema:
+        type: string
+        pattern: '^req_[a-zA-Z0-9]{16}$'
+      example: "req_1234567890abcdef"
+
+  schemas:
+    # ===== AUTHENTICATION =====
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type (always "Bearer")
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+          example: 3600
+        refresh_token:
+          type: string
+          description: Refresh token for obtaining new access tokens
+          example: "rt_1234567890abcdef"
+        scope:
+          type: string
+          description: Space-separated list of granted scopes
+          example: "inspections:read inspections:write defects:read"
+
+    # ===== CORE ENTITIES =====
+    InspectionStatus:
+      type: string
+      enum: [pending, in_progress, completed, failed]
+      description: Current inspection status
+      example: pending
+
+    InspectionType:
+      type: string
+      enum: [visual, electrical, thermal, dimensional, functional]
+      description: Type of quality inspection
+      example: visual
+
+    DefectType:
+      type: string
+      enum: [scratch, void, contamination, misalignment, short, open, crack, burn, foreign_object]
+      description: Classification of detected defect
+      example: scratch
+
+    DefectSeverity:
+      type: string
+      enum: [low, medium, high, critical]
+      description: Severity level of defect
+      example: medium
+
+    ArtifactType:
+      type: string
+      enum: [image, video, measurement, document, log]
+      description: Type of inspection artifact
+      example: image
+
+    InspectionCreate:
+      type: object
+      required:
+        - lot_id
+        - chip_id
+        - inspection_type
+      properties:
+        lot_id:
+          type: string
+          description: Manufacturing lot identifier
+          maxLength: 100
+          pattern: '^[A-Z0-9-]+$'
+          example: "LOT-2025-001"
+        chip_id:
+          type: string
+          description: Individual chip/component identifier
+          maxLength: 100
+          pattern: '^[A-Za-z0-9-]+$'
+          example: "PCB-A1234"
+        inspection_type:
+          $ref: '#/components/schemas/InspectionType'
+        priority:
+          type: integer
+          description: Processing priority (1=lowest, 10=highest)
+          minimum: 1
+          maximum: 10
+          default: 5
+          example: 5
+        metadata:
+          type: object
+          description: Custom key-value pairs for workflow integration
+          additionalProperties:
+            type: string
+          example:
+            station_id: "STATION-01"
+            operator: "john.doe"
+            shift: "morning"
+
+    Inspection:
+      allOf:
+        - $ref: '#/components/schemas/InspectionCreate'
+        - type: object
+          required:
+            - id
+            - status
+            - created_at
+            - updated_at
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Unique inspection identifier
+              readOnly: true
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            status:
+              $ref: '#/components/schemas/InspectionStatus'
+            created_at:
+              type: string
+              format: date-time
+              description: Creation timestamp
+              readOnly: true
+              example: "2025-10-29T10:30:00.000Z"
+            updated_at:
+              type: string
+              format: date-time
+              description: Last modification timestamp
+              readOnly: true
+              example: "2025-10-29T10:35:00.000Z"
+
+    InspectionDetailed:
+      allOf:
+        - $ref: '#/components/schemas/Inspection'
+        - type: object
+          properties:
+            defects:
+              type: array
+              description: Associated defects (if include_defects=true)
+              items:
+                $ref: '#/components/schemas/Defect'
+
+    # ===== DEFECTS =====
+    Defect:
+      type: object
+      required:
+        - id
+        - inspection_id
+        - defect_type
+        - severity
+        - location
+        - confidence
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique defect identifier
+          example: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        inspection_id:
+          type: string
+          format: uuid
+          description: Associated inspection ID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        defect_type:
+          $ref: '#/components/schemas/DefectType'
+        severity:
+          $ref: '#/components/schemas/DefectSeverity'
+        location:
+          type: object
+          description: Bounding box coordinates (pixels)
+          required: [x, y, width, height]
+          properties:
+            x:
+              type: number
+              minimum: 0
+              description: Left edge coordinate
+              example: 145.5
+            y:
+              type: number
+              minimum: 0
+              description: Top edge coordinate  
+              example: 220.8
+            width:
+              type: number
+              minimum: 0
+              description: Bounding box width
+              example: 25.2
+            height:
+              type: number
+              minimum: 0
+              description: Bounding box height
+              example: 18.7
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: ML confidence score (0-1)
+          example: 0.87
+        description:
+          type: string
+          description: Human-readable defect description
+          maxLength: 500
+          example: "Small scratch on component surface"
+        created_at:
+          type: string
+          format: date-time
+          description: Detection timestamp
+          readOnly: true
+          example: "2025-10-29T10:35:00.000Z"
+
+    # ===== ARTIFACTS =====
+    ArtifactUploadRequest:
+      type: object
+      required:
+        - filename
+        - content_type
+        - artifact_type
+      properties:
+        filename:
+          type: string
+          description: Original filename
+          maxLength: 255
+          pattern: '^[a-zA-Z0-9._-]+$'
+          example: "pcb_top_view.jpg"
+        content_type:
+          type: string
+          description: MIME type
+          enum: 
+            - image/jpeg
+            - image/png
+            - image/tiff
+            - video/mp4
+            - application/json
+            - text/csv
+          example: "image/jpeg"
+        artifact_type:
+          $ref: '#/components/schemas/ArtifactType'
+        metadata:
+          type: object
+          description: Custom metadata for the artifact
+          additionalProperties:
+            type: string
+          example:
+            camera_id: "CAM-01"
+            resolution: "4096x3072"
+
+    ArtifactUploadResponse:
+      type: object
+      required:
+        - artifact_id
+        - upload_url
+        - expires_at
+      properties:
+        artifact_id:
+          type: string
+          format: uuid
+          description: Generated artifact identifier
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        upload_url:
+          type: string
+          format: uri
+          description: Presigned URL for direct upload
+          example: "https://storage.chipquality.com/artifacts/upload?signature=..."
+        expires_at:
+          type: string
+          format: date-time
+          description: URL expiration time (15 minutes)
+          example: "2025-10-29T10:45:00.000Z"
+
+    # ===== INFERENCE =====
+    InferenceRequest:
+      type: object
+      properties:
+        model_name:
+          type: string
+          description: ML model to use for inference
+          default: "pcb_defect_detector_v2"
+          example: "pcb_defect_detector_v2"
+        batch_size:
+          type: integer
+          description: Batch size for processing
+          minimum: 1
+          maximum: 32
+          default: 4
+          example: 4
+        priority:
+          type: string
+          enum: [low, normal, high, critical]
+          default: normal
+          description: Processing priority
+          example: normal
+        confidence_threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.7
+          description: Minimum confidence for defect detection
+          example: 0.7
+
+    InferenceResponse:
+      type: object
+      required:
+        - operation_id
+        - status
+        - estimated_completion
+      properties:
+        operation_id:
+          type: string
+          pattern: '^op_[a-zA-Z0-9]{16}$'
+          description: Unique operation identifier for tracking
+          example: "op_1234567890abcdef"
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+          description: Current operation status
+          example: "queued"
+        estimated_completion:
+          type: string
+          format: date-time
+          description: Estimated completion time
+          example: "2025-10-29T10:32:00.000Z"
+
+    # ===== REPORTS =====
+    ReportRequest:
+      type: object
+      required:
+        - report_type
+        - title
+        - date_range
+        - format
+      properties:
+        report_type:
+          type: string
+          enum: [defect_summary, inspection_throughput, quality_trends, detailed_analysis]
+          description: Type of report to generate
+          example: "defect_summary"
+        title:
+          type: string
+          description: Report title
+          maxLength: 200
+          example: "October 2025 Defect Analysis"
+        date_range:
+          type: object
+          required: [start, end]
+          properties:
+            start:
+              type: string
+              format: date-time
+              description: Start of reporting period
+              example: "2025-10-01T00:00:00Z"
+            end:
+              type: string
+              format: date-time
+              description: End of reporting period
+              example: "2025-10-31T23:59:59Z"
+        format:
+          type: string
+          enum: [pdf, excel, csv, json]
+          description: Output format
+          example: "pdf"
+
+    ReportResponse:
+      type: object
+      required:
+        - operation_id
+        - status
+        - estimated_completion
+      properties:
+        operation_id:
+          type: string
+          pattern: '^op_[a-zA-Z0-9]{16}$'
+          description: Operation ID for tracking report generation
+          example: "op_report_123456789"
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+          description: Generation status
+          example: "queued"
+        estimated_completion:
+          type: string
+          format: date-time
+          description: Estimated completion time
+          example: "2025-10-29T10:33:00.000Z"
+
+    # ===== OPERATIONS =====
+    Operation:
+      type: object
+      required:
+        - id
+        - type
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+          pattern: '^op_[a-zA-Z0-9]{16}$'
+          description: Unique operation identifier
+          example: "op_1234567890abcdef"
+        type:
+          type: string
+          enum: [inference, report_generation, batch_processing]
+          description: Type of operation
+          example: "inference"
+        status:
+          type: string
+          enum: [queued, processing, completed, failed, cancelled]
+          description: Current status
+          example: "processing"
+        progress:
+          type: object
+          description: Progress information
+          properties:
+            percentage:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: Completion percentage
+              example: 75
+            current_step:
+              type: string
+              description: Current processing step
+              example: "Analyzing artifacts"
+        created_at:
+          type: string
+          format: date-time
+          description: Operation start time
+          readOnly: true
+          example: "2025-10-29T10:30:00.000Z"
+
+    # ===== HEALTH & SYSTEM =====
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall service health
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+          example: "2025-10-29T10:30:00.000Z"
+        version:
+          type: string
+          description: Service version
+          example: "1.0.0"
+
+    # ===== COMMON PATTERNS =====
+    PaginatedResponse:
+      type: object
+      required:
+        - data
+        - has_more
+      properties:
+        data:
+          type: array
+          description: Result data
+          items: {}
+        has_more:
+          type: boolean
+          description: Whether more results are available
+          example: true
+        next_cursor:
+          type: string
+          description: Cursor for next page
+          nullable: true
+          example: "eyJjcmVhdGVkX2F0IjoiMjAyNS0xMC0yOVQxMDozMDowMFoifQ"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - timestamp
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "validation_error"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Request validation failed"
+            details:
+              type: object
+              description: Additional error context
+              nullable: true
+              additionalProperties: true
+              example:
+                field: "chip_id"
+                constraint: "must be alphanumeric, 3-50 characters"
+            request_id:
+              type: string
+              description: Request ID for tracking
+              example: "req_1234567890abcdef"
+            timestamp:
+              type: string
+              format: date-time
+              description: Error occurrence time
+              example: "2025-10-29T10:30:00.000Z"
+
+  responses:
+    # ===== ERROR RESPONSES =====
+    BadRequest:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Resource already exists or state conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    IdempotencyConflict:
+      description: Idempotency key reused with different payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          description: Request limit per window
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Remaining requests in current window
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Unix timestamp when rate limit resets
+          schema:
+            type: integer
+        Retry-After:
+          description: Seconds to wait before retrying
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: chip-quality-platform-base
+
+resources:
+  # Namespace
+  - namespace.yaml
+  
+  # Secrets and ConfigMaps
+  - secrets.yaml
+  - configmaps.yaml
+  
+  # Services
+  - api-gateway.yaml
+  - ingestion-svc.yaml
+  - inference-svc.yaml
+  - metadata-svc.yaml
+  - artifact-svc.yaml
+  - report-svc.yaml
+  
+  # Infrastructure
+  - postgresql.yaml
+  - redis.yaml
+  - kafka.yaml
+  - minio.yaml
+  
+  # NVIDIA Triton
+  - triton.yaml
+  
+  # Monitoring
+  - prometheus.yaml
+  - grafana.yaml
+  - loki.yaml
+  
+  # Ingress
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/name: chip-quality-platform
+  app.kubernetes.io/version: v0.1.0
+
+images:
+  - name: api-gateway
+    newTag: latest
+  - name: ingestion-svc
+    newTag: latest
+  - name: inference-svc
+    newTag: latest
+  - name: metadata-svc
+    newTag: latest
+  - name: artifact-svc
+    newTag: latest
+  - name: report-svc
+    newTag: latest

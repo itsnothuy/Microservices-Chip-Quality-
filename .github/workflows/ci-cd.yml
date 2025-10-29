@@ -1,0 +1,324 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Code quality and security checks
+  code-quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, ingestion-svc, inference-svc, metadata-svc, artifact-svc, report-svc]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      working-directory: services/${{ matrix.service }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        
+    - name: Run linting
+      working-directory: services/${{ matrix.service }}
+      run: |
+        ruff check .
+        ruff format --check .
+        
+    - name: Run type checking
+      working-directory: services/${{ matrix.service }}
+      run: mypy app/
+      
+    - name: Run security scan
+      working-directory: services/${{ matrix.service }}
+      run: bandit -r app/ -f json -o bandit-report.json
+      
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-report-${{ matrix.service }}
+        path: services/${{ matrix.service }}/bandit-report.json
+
+  # Run tests
+  test:
+    runs-on: ubuntu-latest
+    needs: code-quality
+    strategy:
+      matrix:
+        service: [api-gateway, ingestion-svc, inference-svc, metadata-svc, artifact-svc, report-svc]
+        
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      working-directory: services/${{ matrix.service }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        
+    - name: Run tests
+      working-directory: services/${{ matrix.service }}
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key-for-ci
+      run: |
+        pytest --cov=app --cov-report=xml --cov-report=html
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: services/${{ matrix.service }}/coverage.xml
+        flags: ${{ matrix.service }}
+        name: codecov-${{ matrix.service }}
+
+  # Build and push Docker images
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    strategy:
+      matrix:
+        service: [api-gateway, ingestion-svc, inference-svc, metadata-svc, artifact-svc, report-svc]
+        
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha,prefix={{branch}}-
+          
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: services/${{ matrix.service }}
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:${{ github.sha }}
+        format: spdx-json
+        output-file: sbom-${{ matrix.service }}.spdx.json
+        
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v3
+      with:
+        name: sbom-${{ matrix.service }}
+        path: sbom-${{ matrix.service }}.spdx.json
+
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    strategy:
+      matrix:
+        service: [api-gateway, ingestion-svc, inference-svc, metadata-svc, artifact-svc, report-svc]
+        
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results-${{ matrix.service }}.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+
+  # Sign container images
+  sign:
+    runs-on: ubuntu-latest
+    needs: [build, security-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        service: [api-gateway, ingestion-svc, inference-svc, metadata-svc, artifact-svc, report-svc]
+        
+    steps:
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Sign container image
+      env:
+        COSIGN_EXPERIMENTAL: 1
+      run: |
+        cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:${{ github.sha }}
+
+  # Deploy to staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [build, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+        
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+        
+    - name: Deploy to staging
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl apply -k k8s/overlays/staging
+        kubectl set image deployment/api-gateway api-gateway=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }} -n chip-quality-platform-staging
+        kubectl set image deployment/ingestion-svc ingestion-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/ingestion-svc:${{ github.sha }} -n chip-quality-platform-staging
+        kubectl set image deployment/inference-svc inference-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/inference-svc:${{ github.sha }} -n chip-quality-platform-staging
+        kubectl set image deployment/metadata-svc metadata-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/metadata-svc:${{ github.sha }} -n chip-quality-platform-staging
+        kubectl set image deployment/artifact-svc artifact-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/artifact-svc:${{ github.sha }} -n chip-quality-platform-staging
+        kubectl set image deployment/report-svc report-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/report-svc:${{ github.sha }} -n chip-quality-platform-staging
+        
+    - name: Wait for rollout
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl rollout status deployment/api-gateway -n chip-quality-platform-staging --timeout=300s
+        kubectl rollout status deployment/ingestion-svc -n chip-quality-platform-staging --timeout=300s
+        kubectl rollout status deployment/inference-svc -n chip-quality-platform-staging --timeout=300s
+        kubectl rollout status deployment/metadata-svc -n chip-quality-platform-staging --timeout=300s
+        kubectl rollout status deployment/artifact-svc -n chip-quality-platform-staging --timeout=300s
+        kubectl rollout status deployment/report-svc -n chip-quality-platform-staging --timeout=300s
+
+  # Deploy to production
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [sign]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+        
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+        
+    - name: Deploy to production
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl apply -k k8s/overlays/production
+        kubectl set image deployment/api-gateway api-gateway=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }} -n chip-quality-platform
+        kubectl set image deployment/ingestion-svc ingestion-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/ingestion-svc:${{ github.sha }} -n chip-quality-platform
+        kubectl set image deployment/inference-svc inference-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/inference-svc:${{ github.sha }} -n chip-quality-platform
+        kubectl set image deployment/metadata-svc metadata-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/metadata-svc:${{ github.sha }} -n chip-quality-platform
+        kubectl set image deployment/artifact-svc artifact-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/artifact-svc:${{ github.sha }} -n chip-quality-platform
+        kubectl set image deployment/report-svc report-svc=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/report-svc:${{ github.sha }} -n chip-quality-platform
+        
+    - name: Wait for rollout
+      run: |
+        export KUBECONFIG=kubeconfig
+        kubectl rollout status deployment/api-gateway -n chip-quality-platform --timeout=600s
+        kubectl rollout status deployment/ingestion-svc -n chip-quality-platform --timeout=600s
+        kubectl rollout status deployment/inference-svc -n chip-quality-platform --timeout=600s
+        kubectl rollout status deployment/metadata-svc -n chip-quality-platform --timeout=600s
+        kubectl rollout status deployment/artifact-svc -n chip-quality-platform --timeout=600s
+        kubectl rollout status deployment/report-svc -n chip-quality-platform --timeout=600s

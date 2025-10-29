@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: chip-quality-platform
+data:
+  # Redis configuration
+  redis-url: "redis://redis:6379"
+  
+  # Kafka configuration
+  kafka-bootstrap-servers: "kafka:9092"
+  kafka-schema-registry-url: "http://schema-registry:8081"
+  
+  # Rate limiting
+  rate-limit-per-minute: "100"
+  rate-limit-burst: "200"
+  
+  # CORS settings
+  cors-origins: '["http://localhost:3000", "https://app.chipquality.com"]'
+  
+  # Logging
+  log-level: "INFO"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-config
+  namespace: chip-quality-platform
+data:
+  # OpenTelemetry
+  otlp-endpoint: "http://otel-collector:4317"
+  
+  # Prometheus
+  prometheus-url: "http://prometheus:9090"
+  
+  # Grafana
+  grafana-url: "http://grafana:3000"
+  
+  # Loki
+  loki-url: "http://loki:3100"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config
+  namespace: chip-quality-platform
+data:
+  # PostgreSQL configuration
+  postgres-host: "postgresql"
+  postgres-port: "5432"
+  postgres-database: "chip_quality"
+  
+  # Connection pool settings
+  postgres-pool-size: "10"
+  postgres-max-overflow: "20"
+  postgres-pool-timeout: "30"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triton-config
+  namespace: chip-quality-platform
+data:
+  # NVIDIA Triton configuration
+  triton-url: "triton:8001"
+  triton-grpc-url: "triton:8001"
+  triton-http-url: "triton:8000"
+  
+  # Model repository
+  model-repository-path: "/models"
+  model-repository-s3-bucket: "chip-quality-models"
+  
+  # Inference settings
+  max-batch-size: "32"
+  preferred-batch-size: "8"
+  max-queue-delay: "100"  # microseconds
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-config
+  namespace: chip-quality-platform
+data:
+  # MinIO S3 configuration
+  minio-url: "http://minio:9000"
+  minio-console-url: "http://minio:9001"
+  
+  # Bucket names
+  artifacts-bucket: "chip-quality-artifacts"
+  models-bucket: "chip-quality-models"
+  reports-bucket: "chip-quality-reports"
+  
+  # Object lifecycle
+  artifact-retention-days: "90"
+  report-retention-days: "365"
