@@ -232,12 +232,16 @@ docker-compose.override.yml
 .env.test.local
 .env.production.local
 
-# AI/ML artifacts
-models/
-*.pkl
-*.joblib
-*.h5
-*.hdf5
+# AI/ML artifacts (but not Python source code models)
+models/*.pkl
+models/*.joblib
+models/*.h5
+models/*.hdf5
+models/*.onnx
+models/*.plan
+models/*.pt
+models/*.pb
+!services/shared/models/
 
 # Cache directories
 .cache/
