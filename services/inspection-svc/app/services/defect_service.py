@@ -5,27 +5,26 @@ Handles defect creation, classification, review, and tracking.
 """
 
 import uuid
-from typing import List, Optional, Dict, Any
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.shared.models.inspection import Defect, Inspection
 from services.shared.database.enums import (
-    DefectTypeEnum,
     DefectSeverityEnum,
+    DefectTypeEnum,
     DetectionMethodEnum,
-    ReviewStatusEnum
 )
+from services.shared.models.inspection import Defect, Inspection
+
 from ..core.exceptions import (
     DefectNotFoundError,
+    InspectionNotFoundError,
     ValidationError,
-    InspectionNotFoundError
 )
-
 
 logger = structlog.get_logger()
 

@@ -4,13 +4,12 @@ Notification service for alerts and updates.
 Handles notifications for quality alerts, inspection updates, and stakeholder communications.
 """
 
-from typing import Dict, Any, List, Optional
-from enum import Enum
 import uuid
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 import structlog
-
 
 logger = structlog.get_logger()
 

@@ -5,22 +5,19 @@ Calculates quality metrics, scores, and manages quality thresholds
 for manufacturing inspections.
 """
 
-from typing import Dict, Any, List, Optional
-from decimal import Decimal
-from datetime import datetime, timedelta
 import uuid
+from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, and_, func
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.shared.models.inspection import Inspection, Defect
-from services.shared.database.enums import (
-    DefectSeverityEnum,
-    InspectionStatusEnum
-)
-from ..core.exceptions import ValidationError, InspectionNotFoundError
+from services.shared.database.enums import DefectSeverityEnum, InspectionStatusEnum
+from services.shared.models.inspection import Defect, Inspection
 
+from ..core.exceptions import InspectionNotFoundError
 
 logger = structlog.get_logger()
 

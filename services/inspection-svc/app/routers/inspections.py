@@ -5,30 +5,24 @@ Provides REST API for inspection management, workflow orchestration,
 and status tracking.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
 import structlog
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.shared.database.enums import (
-    InspectionTypeEnum,
-    InspectionStatusEnum
-)
+from services.shared.database.enums import InspectionStatusEnum, InspectionTypeEnum
+
 from ..core.dependencies import get_db_session
 from ..core.exceptions import (
-    InspectionServiceError,
     InspectionNotFoundError,
-    DuplicateInspectionError
+    InspectionServiceError,
 )
 from ..services.inspection_service import InspectionService
-from ..services.quality_service import QualityService
-from ..services.ml_service import MLService
-from ..services.defect_service import DefectService
 from ..services.notification_service import NotificationService
-
+from ..services.quality_service import QualityService
 
 logger = structlog.get_logger()
 router = APIRouter()

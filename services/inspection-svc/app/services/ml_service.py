@@ -5,16 +5,22 @@ Integrates with NVIDIA Triton Inference Server for real-time defect detection.
 """
 
 import asyncio
-from typing import List, Dict, Any, Optional
-from decimal import Decimal
 import uuid
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
 import structlog
 
-from services.shared.database.enums import DefectTypeEnum, DefectSeverityEnum, DetectionMethodEnum
-from ..core.config import settings
-from ..core.exceptions import MLInferenceError, InferenceTimeoutError, ModelNotAvailableError
+from services.shared.database.enums import (
+    DefectSeverityEnum,
+    DefectTypeEnum,
+)
 
+from ..core.config import settings
+from ..core.exceptions import (
+    InferenceTimeoutError,
+    MLInferenceError,
+)
 
 logger = structlog.get_logger()
 

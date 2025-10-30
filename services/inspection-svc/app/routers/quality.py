@@ -4,17 +4,16 @@ Quality API endpoints.
 Provides REST API for quality metrics, assessment, and trend analysis.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.dependencies import get_db_session
 from ..services.quality_service import QualityService
-
 
 logger = structlog.get_logger()
 router = APIRouter()

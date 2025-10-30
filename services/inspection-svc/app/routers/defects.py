@@ -4,24 +4,23 @@ Defect API endpoints.
 Provides REST API for defect management, review, and analysis.
 """
 
+from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
-from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.shared.database.enums import (
-    DefectTypeEnum,
     DefectSeverityEnum,
-    DetectionMethodEnum
+    DefectTypeEnum,
 )
+
 from ..core.dependencies import get_db_session
 from ..core.exceptions import DefectNotFoundError
 from ..services.defect_service import DefectService
-
 
 logger = structlog.get_logger()
 router = APIRouter()

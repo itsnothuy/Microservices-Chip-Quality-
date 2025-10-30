@@ -8,16 +8,15 @@ quality assessment, and defect management.
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .core.config import settings
-from .core.exceptions import InspectionServiceError
-from .routers import inspections, defects, quality
 from .core.dependencies import get_engine
-
+from .core.exceptions import InspectionServiceError
+from .routers import defects, inspections, quality
 
 logger = structlog.get_logger()
 

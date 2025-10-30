@@ -7,29 +7,28 @@ coordinating with ML inference, quality assessment, and notification services.
 
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any, List
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, and_, or_
+import structlog
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-import structlog
 
-from services.shared.models.inspection import Inspection, Defect
-from services.shared.models.manufacturing import Lot
 from services.shared.database.enums import (
     InspectionStatusEnum,
     InspectionTypeEnum,
-    ReviewStatusEnum
+    ReviewStatusEnum,
 )
+from services.shared.models.inspection import Inspection
+from services.shared.models.manufacturing import Lot
+
 from ..core.exceptions import (
     InspectionNotFoundError,
-    DuplicateInspectionError,
     InspectionStatusError,
+    ResourceNotFoundError,
     ValidationError,
-    ResourceNotFoundError
 )
-
 
 logger = structlog.get_logger()
 
@@ -115,7 +114,7 @@ class InspectionService:
             status=InspectionStatusEnum.PENDING,
             review_status=ReviewStatusEnum.PENDING,
             inspector_id=operator_id,
-            station_id=station_id or f"STATION-DEFAULT",
+            station_id=station_id or "STATION-DEFAULT",
             scheduled_at=datetime.utcnow(),
             inspection_parameters=metadata or {},
             correlation_id=str(uuid.uuid4())
