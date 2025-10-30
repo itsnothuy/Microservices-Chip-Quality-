@@ -3,9 +3,10 @@
 from datetime import timedelta
 from typing import Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
+from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from app.core.auth import (
@@ -14,6 +15,23 @@ from app.core.auth import (
 )
 from app.core.config import get_settings
 from app.core.rate_limiting import get_limiter
+from services.shared.database.session import get_db_session
+from services.shared.auth.dependencies import (
+    get_current_user as get_auth_user,
+    get_token_manager,
+    require_verified_user,
+)
+from services.shared.auth.handlers import AuthenticationHandler
+from services.shared.auth.schemas import (
+    LoginRequest,
+    LoginResponse,
+    TokenResponse,
+    RefreshTokenRequest,
+    UserResponse,
+    PasswordChangeRequest,
+)
+from services.shared.auth.tokens import TokenManager
+from services.shared.models.users import User as DBUser
 
 
 logger = structlog.get_logger()

@@ -43,6 +43,19 @@ from .password import (
     generate_random_password,
 )
 
+from .tokens import TokenManager, TokenData
+
+from .handlers import AuthenticationHandler
+
+from .dependencies import (
+    get_current_user,
+    get_current_active_user,
+    require_permissions,
+    require_role,
+    require_verified_user,
+    get_token_manager,
+)
+
 __all__ = [
     # Exceptions
     "AuthenticationError",
@@ -68,4 +81,16 @@ __all__ = [
     "verify_password",
     "validate_password_strength",
     "generate_random_password",
+    # Token management
+    "TokenManager",
+    "TokenData",
+    # Handlers
+    "AuthenticationHandler",
+    # Dependencies
+    "get_current_user",
+    "get_current_active_user",
+    "require_permissions",
+    "require_role",
+    "require_verified_user",
+    "get_token_manager",
 ]
