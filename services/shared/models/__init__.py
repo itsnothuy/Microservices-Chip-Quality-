@@ -8,6 +8,7 @@ This module contains all database models organized by domain:
 - artifacts: File storage and metadata
 - reporting: Reports and analytics
 - audit: Audit logs for compliance and traceability
+- users: User management and authentication
 """
 
 from .manufacturing import Part, Lot
@@ -16,6 +17,15 @@ from .inference import InferenceJob
 from .artifacts import Artifact
 from .reporting import Report
 from .audit import AuditLog
+from .users import (
+    User,
+    Role,
+    UserRole,
+    UserSession,
+    AuthEvent,
+    PasswordHistory,
+    ElectronicSignature,
+)
 
 __all__ = [
     # Manufacturing models
@@ -32,4 +42,12 @@ __all__ = [
     "Report",
     # Audit models
     "AuditLog",
+    # User and auth models
+    "User",
+    "Role",
+    "UserRole",
+    "UserSession",
+    "AuthEvent",
+    "PasswordHistory",
+    "ElectronicSignature",
 ]
