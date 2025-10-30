@@ -1,0 +1,239 @@
+name: Enhanced Issue Auto-Close with Validation
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  validate-and-close:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install validation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov black isort flake8 mypy
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip install -e .; fi
+      
+      - name: Extract issue references from PR
+        id: extract_issues
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          
+          ISSUE_REFS=$(echo "$PR_BODY $PR_TITLE" | grep -oE "(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#([0-9]+)" | grep -oE "#[0-9]+" | sort -u || echo "")
+          
+          echo "Found issue references: $ISSUE_REFS"
+          echo "issue_refs<<EOF" >> $GITHUB_OUTPUT
+          echo "$ISSUE_REFS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          ISSUE_COUNT=$(echo "$ISSUE_REFS" | wc -w)
+          echo "issue_count=$ISSUE_COUNT" >> $GITHUB_OUTPUT
+      
+      - name: Validate implementation completeness
+        if: steps.extract_issues.outputs.issue_count > 0
+        id: validation
+        run: |
+          VALIDATION_FAILED=0
+          VALIDATION_REPORTS=""
+          
+          chmod +x tools/quality/validate-implementation.py
+          
+          for issue_ref in ${{ steps.extract_issues.outputs.issue_refs }}; do
+            issue_num=$(echo $issue_ref | grep -oE "[0-9]+")
+            
+            echo "🔍 Validating implementation for issue #$issue_num"
+            
+            issue_file=$(find issues/ -name "*$issue_num*.md" | head -1)
+            if [ -z "$issue_file" ]; then
+              echo "❌ Issue file not found for #$issue_num"
+              VALIDATION_FAILED=1
+              continue
+            fi
+            
+            echo "📋 Found issue file: $issue_file"
+            
+            if python tools/quality/validate-implementation.py --issue "$issue_file" --strict --output "validation-report-$issue_num.json"; then
+              echo "✅ Validation passed for issue #$issue_num"
+              
+              QUALITY_SCORE=$(python -c "import json; data=json.load(open('validation-report-$issue_num.json')); print(data.get('quality_score', 0))")
+              echo "📊 Quality score: $QUALITY_SCORE/100"
+              
+              if (( $(echo "$QUALITY_SCORE < 80" | bc -l) )); then
+                echo "⚠️  Quality score below threshold (80) for issue #$issue_num"
+                VALIDATION_FAILED=1
+              fi
+            else
+              echo "❌ Validation failed for issue #$issue_num"
+              VALIDATION_FAILED=1
+              
+              if [ -f "validation-report-$issue_num.json" ]; then
+                echo "📋 Validation report:"
+                python -c "import json; data=json.load(open('validation-report-$issue_num.json')); [print(f'  ❌ {error}') for error in data.get('validation_details', {}).get('errors', [])]; [print(f'  ⚠️  {warning}') for warning in data.get('validation_details', {}).get('warnings', [])]"
+              fi
+            fi
+            
+            VALIDATION_REPORTS="$VALIDATION_REPORTS validation-report-$issue_num.json"
+          done
+          
+          echo "validation_failed=$VALIDATION_FAILED" >> $GITHUB_OUTPUT
+          echo "validation_reports=$VALIDATION_REPORTS" >> $GITHUB_OUTPUT
+      
+      - name: Run additional quality checks
+        if: steps.extract_issues.outputs.issue_count > 0
+        run: |
+          echo "🔍 Running additional quality checks..."
+          
+          echo "📝 Checking Python syntax..."
+          find . -name "*.py" -not -path "./.venv/*" -not -path "./venv/*" | xargs -I {} python -m py_compile {}
+          
+          echo "📦 Checking critical imports..."
+          if [ -d "services/shared/models" ]; then
+            python -c "from services.shared.models import *; print('✅ Models import successfully')" || echo "⚠️  Models import check failed"
+          fi
+          
+          echo "📁 Checking project structure..."
+          REQUIRED_DIRS=("services" "docs" "tests")
+          for dir in "${REQUIRED_DIRS[@]}"; do
+            if [ ! -d "$dir" ]; then
+              echo "⚠️  Missing directory: $dir"
+            else
+              echo "✅ Found directory: $dir"
+            fi
+          done
+      
+      - name: Generate validation summary
+        if: steps.extract_issues.outputs.issue_count > 0
+        id: summary
+        run: |
+          echo "📊 Generating validation summary..."
+          
+          SUMMARY_FILE="validation-summary.json"
+          python tools/quality/generate_summary.py --output "$SUMMARY_FILE"
+          
+          OVERALL_PASSED=$(python -c "import json; data=json.load(open('$SUMMARY_FILE')); print('true' if data['all_validations_passed'] else 'false')")
+          QUALITY_SCORE=$(python -c "import json; data=json.load(open('$SUMMARY_FILE')); print(data['overall_quality_score'])")
+          
+          echo "overall_passed=$OVERALL_PASSED" >> $GITHUB_OUTPUT
+          echo "quality_score=$QUALITY_SCORE" >> $GITHUB_OUTPUT
+      
+      - name: Post validation results to PR
+        if: always() && steps.extract_issues.outputs.issue_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = context.payload.pull_request.number;
+            
+            let summary = {};
+            try {
+              summary = JSON.parse(fs.readFileSync('validation-summary.json', 'utf8'));
+            } catch (e) {
+              console.log('No validation summary found');
+            }
+            
+            const validationPassed = '${{ steps.summary.outputs.overall_passed }}' === 'true';
+            const qualityScore = '${{ steps.summary.outputs.quality_score }}';
+            const issueRefs = '${{ steps.extract_issues.outputs.issue_refs }}'.split(' ').filter(ref => ref.trim());
+            
+            const statusEmoji = validationPassed ? '✅' : '❌';
+            const statusMessage = validationPassed ? 'All Validations Passed' : 'Validation Issues Found';
+            
+            const score = parseFloat(qualityScore) || 0;
+            const scoreBar = '█'.repeat(Math.floor(score / 5)) + '░'.repeat(20 - Math.floor(score / 5));
+            
+            let comment = `## ${statusEmoji} Implementation Validation Report\n\n`;
+            comment += `**Status**: ${statusMessage}\n`;
+            comment += `**Overall Quality Score**: ${qualityScore}/100\n`;
+            comment += `\`${scoreBar}\` ${qualityScore}%\n\n`;
+            
+            if (issueRefs.length > 0) {
+              comment += `**Issues Validated**: ${issueRefs.join(', ')}\n\n`;
+            }
+            
+            if (summary.total_errors > 0) {
+              comment += `### ❌ Validation Errors (${summary.total_errors})\n`;
+              comment += `Please fix these issues before merging:\n\n`;
+            }
+            
+            if (summary.total_warnings > 0) {
+              comment += `### ⚠️ Warnings (${summary.total_warnings})\n`;
+              comment += `Consider addressing these for improved quality:\n\n`;
+            }
+            
+            if (validationPassed) {
+              comment += `### ✅ Quality Gates Passed\n`;
+              comment += `- File structure validation\n`;
+              comment += `- Import resolution verification\n`;
+              comment += `- Syntax validation\n`;
+              comment += `- Implementation completeness check\n\n`;
+              comment += `**Ready for merge** 🚀\n`;
+            } else {
+              comment += `### 🚫 Quality Gates Failed\n`;
+              comment += `Implementation validation failed. Please review the errors above and fix them before merging.\n\n`;
+              comment += `**Not ready for merge** ❌\n`;
+            }
+            
+            comment += `\n---\n*Automated validation completed at ${new Date().toISOString()}*`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: comment
+            });
+      
+      - name: Auto-close validated issues
+        if: success() && steps.summary.outputs.overall_passed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prBody = context.payload.pull_request.body || '';
+            const prTitle = context.payload.pull_request.title || '';
+            
+            const issueReferences = (prBody + ' ' + prTitle).match(/(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi);
+            
+            if (issueReferences) {
+              console.log('✅ All validations passed - auto-closing issues:', issueReferences);
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: `🎉 **PR Merged with Validated Implementation!**\n\n✅ **Validation Status**: All quality gates passed\n✅ **Issues Auto-Closed**: ${issueReferences.join(', ')}\n✅ **Quality Score**: ${{ steps.summary.outputs.quality_score }}/100\n\n🔍 **Validation Completed**:\n- ✅ File structure verification\n- ✅ Import resolution checking\n- ✅ Syntax validation\n- ✅ Implementation completeness\n- ✅ Quality metrics analysis\n\n🤖 *Automated validation ensures production-ready code quality*`
+              });
+            } else {
+              console.log('No issue references found in PR');
+            }
+      
+      - name: Fail workflow if validation failed
+        if: steps.validation.outputs.validation_failed == '1' || steps.summary.outputs.overall_passed == 'false'
+        run: |
+          echo "❌ Validation failed - implementation is not complete"
+          echo "Please review the validation report and fix all issues before merging"
+          exit 1
+      
+      - name: Upload validation artifacts
+        if: always() && steps.extract_issues.outputs.issue_count > 0
+        uses: actions/upload-artifact@v3
+        with:
+          name: validation-reports
+          path: |
+            validation-report-*.json
+            validation-summary.json
+          retention-days: 30

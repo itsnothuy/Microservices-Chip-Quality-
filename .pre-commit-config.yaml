@@ -48,6 +48,66 @@ repos:
     rev: v0.37.0
     hooks:
       - id: markdownlint
+
+  # Custom quality validation hooks
+  - repo: local
+    hooks:
+      - id: validate-python-imports
+        name: Validate critical Python imports
+        entry: python -c "
+try:
+    from services.shared.models import *
+    from services.shared.database import *
+    from services.shared.enums import *
+    print('✅ All critical imports successful')
+except ImportError as e:
+    print(f'❌ Import validation failed: {e}')
+    exit(1)
+"
+        language: system
+        files: ^services/.*\.py$
+        pass_filenames: false
+      
+      - id: check-test-coverage
+        name: Check test coverage requirements
+        entry: tools/quality/check-test-coverage.py
+        language: python
+        files: ^(services|tests)/.*\.py$
+        pass_filenames: false
+        additional_dependencies: [pytest, pytest-cov]
+      
+      - id: validate-api-contracts
+        name: Validate API contracts
+        entry: tools/quality/validate-api-contracts.py
+        language: python
+        files: ^services/.*\.py$
+        pass_filenames: false
+        additional_dependencies: [fastapi, pydantic]
+      
+      - id: check-model-migrations
+        name: Check database model consistency
+        entry: tools/quality/check-model-migrations.py
+        language: python
+        files: ^services/shared/models/.*\.py$
+        pass_filenames: false
+        additional_dependencies: [alembic, sqlalchemy]
+      
+      - id: validate-implementation-completeness
+        name: Validate implementation completeness
+        entry: tools/quality/validate-implementation.py
+        language: python
+        args: [--quick-check]
+        files: ^(services|docs|tests)/.*$
+        pass_filenames: false
+        stages: [pre-push]
+      
+      - id: quality-gate-check
+        name: Quality gate validation
+        entry: tools/quality/quality-gate-check.py
+        language: python
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
         args: [--fix]
 
   - repo: https://github.com/hadolint/hadolint
