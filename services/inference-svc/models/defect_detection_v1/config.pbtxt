@@ -1,0 +1,29 @@
+# Example Triton model configuration for defect detection
+
+name: "defect_detection_v1"
+platform: "onnxruntime_onnx"
+max_batch_size: 32
+input [
+  {
+    name: "input"
+    data_type: TYPE_FP32
+    dims: [ 3, 1024, 1024 ]
+  }
+]
+output [
+  {
+    name: "output"
+    data_type: TYPE_FP32
+    dims: [ 10 ]
+  }
+]
+dynamic_batching {
+  preferred_batch_size: [ 4, 8, 16 ]
+  max_queue_delay_microseconds: 500
+}
+instance_group [
+  {
+    count: 2
+    kind: KIND_GPU
+  }
+]
