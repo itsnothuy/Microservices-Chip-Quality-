@@ -1,0 +1,41 @@
+# Inference Service Dependencies
+
+# Core framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+
+# Redis cache
+redis==5.0.1
+
+# NVIDIA Triton client (commented out - install when Triton is available)
+# tritonclient[all]==2.40.0
+
+# Image processing
+numpy==1.24.3
+# Pillow==10.1.0  # Uncomment when needed for actual image processing
+# opencv-python==4.8.1.78  # Uncomment when needed
+
+# ML/AI libraries (optional, for preprocessing)
+# scikit-image==0.22.0
+# torch==2.1.0
+# tensorflow==2.14.0
+# onnxruntime==1.16.0
+
+# Observability
+structlog==23.2.0
+python-json-logger==2.0.7
+prometheus-client==0.19.0
+
+# Utilities
+python-multipart==0.0.6
+aiofiles==23.2.1
+
+# For production
+gunicorn==21.2.0
