@@ -22,6 +22,18 @@ dependencies = [
     
     # Logging
     "structlog>=23.2.0",
+    
+    # Event Streaming - Kafka
+    "aiokafka>=0.10.0",
+    "kafka-python>=2.0.2",
+    "confluent-kafka>=2.3.0",
+    
+    # Event Streaming - Avro
+    "avro>=1.11.3",
+    "fastavro>=1.9.0",
+    
+    # Schema Registry
+    "httpx>=0.25.0",
 ]
 
 [project.optional-dependencies]
