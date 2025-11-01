@@ -1,8 +1,9 @@
 """User event producer for authentication and audit trail."""
 
-from typing import Dict, Any, Optional
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Dict, Any, Optional
+
 import structlog
 
 from events.producers.base_producer import BaseEventProducer

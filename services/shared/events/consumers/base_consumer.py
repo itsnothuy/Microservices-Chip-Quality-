@@ -11,12 +11,13 @@ This module provides a base event consumer with:
 - Backpressure handling and flow control
 """
 
-from typing import Dict, Any, Optional, Callable, Awaitable
 import asyncio
+from typing import Dict, Any, Optional, Callable, Awaitable
+
+import structlog
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 from aiokafka.structs import ConsumerRecord
-import structlog
 
 from events.utils.kafka_client import KafkaConfig
 from events.utils.serialization import AvroSerializer

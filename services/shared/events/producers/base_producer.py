@@ -14,13 +14,14 @@ This module provides a base event producer with:
 - Comprehensive error handling and logging
 """
 
-from typing import Dict, Any, Optional, Callable
 import asyncio
 import uuid
 from datetime import datetime
+from typing import Dict, Any, Optional, Callable
+
+import structlog
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaError
-import structlog
 
 from events.utils.kafka_client import KafkaConfig
 from events.utils.serialization import AvroSerializer

@@ -1,8 +1,10 @@
 """Unit tests for event streaming infrastructure."""
 
-import pytest
 import json
 from pathlib import Path
+
+import pytest
+
 from events.utils.serialization import AvroSerializer, SchemaRegistrySerializer
 
 

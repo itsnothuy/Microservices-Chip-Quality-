@@ -9,12 +9,13 @@ This consumer processes inspection and quality events to:
 - Generate alerts for quality issues
 """
 
-from typing import Dict, Any
-from pathlib import Path
 import json
 from datetime import datetime
-from aiokafka.structs import ConsumerRecord
+from pathlib import Path
+from typing import Dict, Any
+
 import structlog
+from aiokafka.structs import ConsumerRecord
 
 from events.consumers.base_consumer import BaseEventConsumer
 from events.utils.kafka_client import KafkaConfig

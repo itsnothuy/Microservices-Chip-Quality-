@@ -4,9 +4,10 @@ This module provides Kafka client configuration with production-ready settings
 for reliability, performance, and observability.
 """
 
-from typing import Dict, Any, Optional
 import os
 from dataclasses import dataclass
+from typing import Dict, Any, Optional
+
 import structlog
 
 logger = structlog.get_logger(__name__)

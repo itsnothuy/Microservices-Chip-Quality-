@@ -4,10 +4,11 @@ This module provides integration with Confluent Schema Registry for
 schema evolution and compatibility checking.
 """
 
-from typing import Dict, Any, Optional
 import json
 import os
 from pathlib import Path
+from typing import Dict, Any, Optional
+
 import httpx
 import structlog
 

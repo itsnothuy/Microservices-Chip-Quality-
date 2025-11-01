@@ -4,8 +4,9 @@ This module provides utilities for serializing and deserializing event data
 using Avro format with schema validation.
 """
 
-from typing import Dict, Any, Optional
 import io
+from typing import Dict, Any, Optional
+
 import fastavro
 import structlog
 
