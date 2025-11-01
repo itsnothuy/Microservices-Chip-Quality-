@@ -1,0 +1,77 @@
+{
+  "type": "record",
+  "name": "SystemEvent",
+  "namespace": "com.chipquality.events.system",
+  "doc": "Event for system health and performance metrics",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique event identifier"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "SystemEventType",
+        "symbols": [
+          "SERVICE_STARTED",
+          "SERVICE_STOPPED",
+          "HEALTH_CHECK",
+          "PERFORMANCE_METRIC",
+          "ERROR_OCCURRED",
+          "SYSTEM_ALERT"
+        ]
+      }
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis"
+    },
+    {
+      "name": "service_name",
+      "type": "string"
+    },
+    {
+      "name": "service_version",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "hostname",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "status",
+      "type": "string"
+    },
+    {
+      "name": "message",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "error_details",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "metrics",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {}
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {}
+    }
+  ]
+}
