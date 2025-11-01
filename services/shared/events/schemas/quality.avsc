@@ -1,0 +1,76 @@
+{
+  "type": "record",
+  "name": "QualityEvent",
+  "namespace": "com.chipquality.events.quality",
+  "doc": "Event for quality assessment and threshold violations",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique event identifier"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "QualityEventType",
+        "symbols": [
+          "QUALITY_ASSESSED",
+          "THRESHOLD_VIOLATED",
+          "ALERT_TRIGGERED",
+          "COMPLIANCE_CHECK",
+          "QUALITY_APPROVED",
+          "QUALITY_REJECTED"
+        ]
+      }
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis"
+    },
+    {
+      "name": "inspection_id",
+      "type": "string"
+    },
+    {
+      "name": "batch_id",
+      "type": "string"
+    },
+    {
+      "name": "quality_score",
+      "type": "double"
+    },
+    {
+      "name": "threshold",
+      "type": ["null", "double"],
+      "default": null
+    },
+    {
+      "name": "pass_fail",
+      "type": "boolean"
+    },
+    {
+      "name": "alert_level",
+      "type": ["null", {
+        "type": "enum",
+        "name": "AlertLevel",
+        "symbols": ["INFO", "WARNING", "ERROR", "CRITICAL"]
+      }],
+      "default": null
+    },
+    {
+      "name": "defect_count",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {}
+    }
+  ]
+}

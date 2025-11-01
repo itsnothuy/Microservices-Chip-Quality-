@@ -1,0 +1,83 @@
+{
+  "type": "record",
+  "name": "InspectionEvent",
+  "namespace": "com.chipquality.events.inspection",
+  "doc": "Event for inspection lifecycle changes",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique event identifier"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "InspectionEventType",
+        "symbols": [
+          "INSPECTION_CREATED",
+          "INSPECTION_STARTED", 
+          "INSPECTION_COMPLETED",
+          "INSPECTION_FAILED",
+          "DEFECT_DETECTED",
+          "QUALITY_ASSESSED"
+        ]
+      }
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis"
+    },
+    {
+      "name": "inspection_id",
+      "type": "string"
+    },
+    {
+      "name": "batch_id", 
+      "type": "string"
+    },
+    {
+      "name": "chip_id",
+      "type": "string"
+    },
+    {
+      "name": "inspection_type",
+      "type": "string"
+    },
+    {
+      "name": "status",
+      "type": "string"
+    },
+    {
+      "name": "quality_score",
+      "type": ["null", "double"],
+      "default": null
+    },
+    {
+      "name": "defects",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Defect",
+          "fields": [
+            {"name": "defect_type", "type": "string"},
+            {"name": "severity", "type": "string"},
+            {"name": "confidence", "type": "double"},
+            {"name": "location", "type": "string"}
+          ]
+        }
+      },
+      "default": []
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {}
+    }
+  ]
+}

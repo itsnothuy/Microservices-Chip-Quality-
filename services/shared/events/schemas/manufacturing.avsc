@@ -1,0 +1,73 @@
+{
+  "type": "record",
+  "name": "ManufacturingEvent",
+  "namespace": "com.chipquality.events.manufacturing",
+  "doc": "Event for manufacturing operations and batch processing",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique event identifier"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "ManufacturingEventType",
+        "symbols": [
+          "BATCH_CREATED",
+          "BATCH_STARTED",
+          "BATCH_COMPLETED",
+          "BATCH_FAILED",
+          "LOT_CREATED",
+          "LOT_PROCESSED",
+          "PRODUCTION_MILESTONE"
+        ]
+      }
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis"
+    },
+    {
+      "name": "batch_id",
+      "type": "string"
+    },
+    {
+      "name": "lot_id",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "part_number",
+      "type": "string"
+    },
+    {
+      "name": "quantity",
+      "type": "int"
+    },
+    {
+      "name": "status",
+      "type": "string"
+    },
+    {
+      "name": "station_id",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "operator_id",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {}
+    }
+  ]
+}
