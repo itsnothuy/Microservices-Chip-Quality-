@@ -1,0 +1,75 @@
+{
+  "type": "record",
+  "name": "UserEvent",
+  "namespace": "com.chipquality.events.user",
+  "doc": "Event for user activities and authentication",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique event identifier"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "UserEventType",
+        "symbols": [
+          "USER_LOGIN",
+          "USER_LOGOUT",
+          "USER_CREATED",
+          "USER_UPDATED",
+          "PERMISSION_GRANTED",
+          "PERMISSION_REVOKED",
+          "AUDIT_ACTION"
+        ]
+      }
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis"
+    },
+    {
+      "name": "user_id",
+      "type": "string"
+    },
+    {
+      "name": "username",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "action",
+      "type": "string"
+    },
+    {
+      "name": "resource",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "ip_address",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "user_agent",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "success",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {}
+    }
+  ]
+}
