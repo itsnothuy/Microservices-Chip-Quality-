@@ -39,9 +39,9 @@ class StorageService:
         try:
             if not self.client.bucket_exists(self.bucket_name):
                 self.client.make_bucket(self.bucket_name)
-                logger.info(f"Created bucket: {self.bucket_name}")
+                logger.info("Created MinIO bucket", bucket_name=self.bucket_name)
         except S3Error as e:
-            logger.error(f"Failed to create bucket: {e}")
+            logger.error("Failed to create bucket", error=str(e))
             raise StorageError(f"Failed to ensure bucket exists: {str(e)}")
     
     async def upload_file(

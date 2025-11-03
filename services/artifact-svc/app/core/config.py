@@ -1,7 +1,7 @@
 """Service configuration management"""
 
 import os
-from typing import Optional
+from typing import Optional, List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     
     # File processing configuration
     max_upload_size_bytes: int = 1024 * 1024 * 1024  # 1GB
-    allowed_content_types: list[str] = [
+    allowed_content_types: List[str] = [
         "image/jpeg",
         "image/png",
         "image/tiff",
@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     otel_endpoint: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     
     # Security
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]
     
     model_config = SettingsConfigDict(
         env_file=".env",

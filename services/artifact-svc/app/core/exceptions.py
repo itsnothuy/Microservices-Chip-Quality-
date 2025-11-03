@@ -1,6 +1,9 @@
 """Custom exceptions for artifact service"""
 
 
+from typing import List
+
+
 class ArtifactServiceError(Exception):
     """Base exception for artifact service errors"""
     
@@ -69,7 +72,7 @@ class FileTooLargeError(ArtifactServiceError):
 class InvalidFileTypeError(ArtifactServiceError):
     """Raised when file type is not allowed"""
     
-    def __init__(self, content_type: str, allowed_types: list[str]):
+    def __init__(self, content_type: str, allowed_types: List[str]):
         super().__init__(
             error_code="INVALID_FILE_TYPE",
             message=f"File type '{content_type}' is not allowed",
