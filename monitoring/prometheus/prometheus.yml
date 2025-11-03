@@ -11,6 +11,7 @@ alerting:
           - alertmanager:9093
 
 rule_files:
+  - "alerts/*.yml"
   - "rules/*.yml"
 
 scrape_configs:

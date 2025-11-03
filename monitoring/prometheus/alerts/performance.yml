@@ -1,0 +1,129 @@
+groups:
+  - name: performance_alerts
+    interval: 30s
+    rules:
+      # High API Latency
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+          category: latency
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile API latency is {{ $value | humanizeDuration }} for endpoint {{ $labels.endpoint }}, exceeding 2s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-api-latency"
+          dashboard: "https://grafana.chip-quality.com/d/performance"
+      
+      # Critical API Latency
+      - alert: CriticalAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5.0
+        for: 2m
+        labels:
+          severity: critical
+          service: api
+          category: latency
+        annotations:
+          summary: "Critical API latency detected"
+          description: "95th percentile API latency is {{ $value | humanizeDuration }} for endpoint {{ $labels.endpoint }}, exceeding critical 5s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/critical-api-latency"
+          dashboard: "https://grafana.chip-quality.com/d/performance"
+      
+      # High Database Query Latency
+      - alert: HighDatabaseLatency
+        expr: histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+          category: latency
+        annotations:
+          summary: "High database query latency"
+          description: "95th percentile database query latency is {{ $value | humanizeDuration }} for table {{ $labels.table }}, exceeding 1s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-db-latency"
+          dashboard: "https://grafana.chip-quality.com/d/performance"
+      
+      # ML Inference Latency
+      - alert: HighInferenceLatency
+        expr: histogram_quantile(0.95, rate(model_inference_latency_seconds_bucket[5m])) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          service: ml_inference
+          category: latency
+        annotations:
+          summary: "High ML inference latency"
+          description: "95th percentile inference latency is {{ $value | humanizeDuration }} for model {{ $labels.model_name }}, exceeding 2s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-inference-latency"
+          dashboard: "https://grafana.chip-quality.com/d/ml_monitoring"
+      
+      # Inspection Processing Time
+      - alert: LongInspectionProcessing
+        expr: histogram_quantile(0.95, rate(inspection_duration_seconds_bucket[10m])) > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: inspection
+          category: throughput
+        annotations:
+          summary: "Long inspection processing time"
+          description: "95th percentile inspection duration is {{ $value | humanizeDuration }} for product type {{ $labels.product_type }}, exceeding 5 minute threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/long-inspection"
+          dashboard: "https://grafana.chip-quality.com/d/performance"
+      
+      # Queue Processing Delay
+      - alert: HighQueueProcessingDelay
+        expr: histogram_quantile(0.95, rate(queue_processing_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: queue
+          category: throughput
+        annotations:
+          summary: "High queue processing delay"
+          description: "95th percentile message processing time is {{ $value | humanizeDuration }} for queue {{ $labels.queue_name }}, exceeding 30s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/queue-delay"
+          dashboard: "https://grafana.chip-quality.com/d/performance"
+      
+      # Low Throughput
+      - alert: LowInspectionThroughput
+        expr: rate(inspections_completed_total[5m]) < 10
+        for: 10m
+        labels:
+          severity: warning
+          service: inspection
+          category: throughput
+        annotations:
+          summary: "Low inspection throughput"
+          description: "Inspection completion rate is {{ $value }} per second, below expected 10/s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/low-throughput"
+          dashboard: "https://grafana.chip-quality.com/d/performance"
+      
+      # Cache Low Hit Rate
+      - alert: LowCacheHitRate
+        expr: cache_hit_rate < 0.7
+        for: 15m
+        labels:
+          severity: warning
+          service: cache
+          category: efficiency
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} for cache {{ $labels.cache_name }}, below 70% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/low-cache-hit-rate"
+          dashboard: "https://grafana.chip-quality.com/d/performance"
+      
+      # Batch Processing Slow
+      - alert: SlowBatchProcessing
+        expr: histogram_quantile(0.95, rate(batch_processing_time_seconds_bucket[10m])) > 3600
+        for: 10m
+        labels:
+          severity: warning
+          service: production
+          category: throughput
+        annotations:
+          summary: "Slow batch processing"
+          description: "95th percentile batch processing time is {{ $value | humanizeDuration }} for product type {{ $labels.product_type }}, exceeding 1 hour threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/slow-batch"
+          dashboard: "https://grafana.chip-quality.com/d/performance"

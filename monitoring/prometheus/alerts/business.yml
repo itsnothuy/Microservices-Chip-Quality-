@@ -1,0 +1,147 @@
+groups:
+  - name: business_alerts
+    interval: 1m
+    rules:
+      # Low Production Yield
+      - alert: LowProductionYield
+        expr: production_yield_rate < 0.85
+        for: 15m
+        labels:
+          severity: warning
+          service: production
+          category: yield
+        annotations:
+          summary: "Low production yield rate"
+          description: "Production yield is {{ $value | humanizePercentage }} for product type {{ $labels.product_type }}, below 85% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/low-yield"
+          dashboard: "https://grafana.chip-quality.com/d/business_metrics"
+      
+      # Critical Production Yield
+      - alert: CriticalProductionYield
+        expr: production_yield_rate < 0.70
+        for: 5m
+        labels:
+          severity: critical
+          service: production
+          category: yield
+        annotations:
+          summary: "Critical production yield rate"
+          description: "Production yield is {{ $value | humanizePercentage }} for product type {{ $labels.product_type }}, below critical 70% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/critical-yield"
+          dashboard: "https://grafana.chip-quality.com/d/business_metrics"
+      
+      # Equipment Downtime
+      - alert: EquipmentDowntime
+        expr: increase(downtime_events_total{planned="false"}[1h]) > 3
+        for: 0m
+        labels:
+          severity: critical
+          service: production
+          category: downtime
+        annotations:
+          summary: "Frequent equipment downtime"
+          description: "Equipment {{ $labels.equipment_id }} has had {{ $value }} unplanned downtime events in the last hour"
+          runbook_url: "https://docs.chip-quality.com/runbooks/equipment-downtime"
+          dashboard: "https://grafana.chip-quality.com/d/business_metrics"
+      
+      # ML Model Drift
+      - alert: MLModelDrift
+        expr: model_drift_score > 0.3
+        for: 15m
+        labels:
+          severity: warning
+          service: ml_inference
+          category: model_health
+        annotations:
+          summary: "ML model drift detected"
+          description: "Model {{ $labels.model_name }} version {{ $labels.model_version }} has drift score {{ $value }}, exceeding 0.3 threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/model-drift"
+          dashboard: "https://grafana.chip-quality.com/d/ml_monitoring"
+      
+      # ML Model Accuracy Drop
+      - alert: MLModelAccuracyDrop
+        expr: model_accuracy_score < 0.90
+        for: 10m
+        labels:
+          severity: critical
+          service: ml_inference
+          category: model_health
+        annotations:
+          summary: "ML model accuracy dropped"
+          description: "Model {{ $labels.model_name }} accuracy dropped to {{ $value | humanizePercentage }}, below 90% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/accuracy-drop"
+          dashboard: "https://grafana.chip-quality.com/d/ml_monitoring"
+      
+      # Low Equipment Availability
+      - alert: LowEquipmentAvailability
+        expr: equipment_availability < 0.90
+        for: 30m
+        labels:
+          severity: warning
+          service: production
+          category: oee
+        annotations:
+          summary: "Low equipment availability"
+          description: "Equipment {{ $labels.equipment_id }} availability is {{ $value | humanizePercentage }}, below 90% target"
+          runbook_url: "https://docs.chip-quality.com/runbooks/low-availability"
+          dashboard: "https://grafana.chip-quality.com/d/business_metrics"
+      
+      # High Operational Costs
+      - alert: HighOperationalCosts
+        expr: increase(operational_costs_total[1d]) > 50000
+        for: 0m
+        labels:
+          severity: warning
+          service: finance
+          category: costs
+        annotations:
+          summary: "High operational costs"
+          description: "Daily operational costs are ${{ $value }}, exceeding $50,000 threshold for category {{ $labels.category }}"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-costs"
+          dashboard: "https://grafana.chip-quality.com/d/business_metrics"
+      
+      # High Unit Rejection Rate
+      - alert: HighUnitRejectionRate
+        expr: |
+          rate(units_rejected_total[10m]) / 
+          (rate(units_produced_total[10m]) + rate(units_rejected_total[10m])) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          service: production
+          category: rejection
+        annotations:
+          summary: "High unit rejection rate"
+          description: "Unit rejection rate is {{ $value | humanizePercentage }} for product type {{ $labels.product_type }}, exceeding 20% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-rejection"
+          dashboard: "https://grafana.chip-quality.com/d/business_metrics"
+      
+      # Inference Request Failures
+      - alert: HighInferenceFailureRate
+        expr: |
+          rate(inference_requests_total{status="failure"}[5m]) / 
+          rate(inference_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: ml_inference
+          category: reliability
+        annotations:
+          summary: "High ML inference failure rate"
+          description: "Inference failure rate is {{ $value | humanizePercentage }} for model {{ $labels.model_name }}, exceeding 5% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/inference-failures"
+          dashboard: "https://grafana.chip-quality.com/d/ml_monitoring"
+      
+      # Training Job Failures
+      - alert: TrainingJobFailures
+        expr: increase(training_jobs_total{status="failed"}[1d]) > 2
+        for: 0m
+        labels:
+          severity: warning
+          service: ml_training
+          category: reliability
+        annotations:
+          summary: "Multiple training job failures"
+          description: "{{ $value }} training job failures in the last 24 hours for model {{ $labels.model_name }}"
+          runbook_url: "https://docs.chip-quality.com/runbooks/training-failures"
+          dashboard: "https://grafana.chip-quality.com/d/ml_monitoring"

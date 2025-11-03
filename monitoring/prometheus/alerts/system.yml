@@ -1,0 +1,157 @@
+groups:
+  - name: system_alerts
+    interval: 30s
+    rules:
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+          category: errors
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors/sec for component {{ $labels.component }}, exceeding 10/s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-error-rate"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # Critical Error Rate
+      - alert: CriticalErrorRate
+        expr: rate(errors_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+          category: errors
+        annotations:
+          summary: "Critical error rate detected"
+          description: "Error rate is {{ $value }} errors/sec for component {{ $labels.component }}, exceeding critical 50/s threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/critical-error-rate"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # Database Connection Pool Exhausted
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connections_active / db_connection_pool_size{state="max"} > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          service: database
+          category: resources
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Database connection pool usage is {{ $value | humanizePercentage }} for pool {{ $labels.pool }}"
+          runbook_url: "https://docs.chip-quality.com/runbooks/db-pool-exhausted"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # Queue Size Growing
+      - alert: QueueSizeGrowing
+        expr: deriv(queue_size[5m]) > 10
+        for: 10m
+        labels:
+          severity: warning
+          service: queue
+          category: capacity
+        annotations:
+          summary: "Queue size growing rapidly"
+          description: "Queue {{ $labels.queue_name }} is growing at {{ $value }} messages/sec, indicating processing backlog"
+          runbook_url: "https://docs.chip-quality.com/runbooks/queue-growing"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # Service Down
+      - alert: ServiceDown
+        expr: up{job=~".*-svc"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: system
+          category: availability
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} is not responding to health checks"
+          runbook_url: "https://docs.chip-quality.com/runbooks/service-down"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: memory_usage_bytes{type="used"} / memory_usage_bytes{type="total"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+          category: resources
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}, exceeding 85% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-memory"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # Critical Memory Usage
+      - alert: CriticalMemoryUsage
+        expr: memory_usage_bytes{type="used"} / memory_usage_bytes{type="total"} > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+          category: resources
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}, exceeding critical 95% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/critical-memory"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # High Disk Usage
+      - alert: HighDiskUsage
+        expr: disk_usage_bytes{type="used"} / (disk_usage_bytes{type="used"} + disk_usage_bytes{type="free"}) > 0.80
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+          category: resources
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage on {{ $labels.mount_point }} is {{ $value | humanizePercentage }}, exceeding 80% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-disk"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # Request Rate Limiting
+      - alert: HighRateLimitHits
+        expr: rate(rate_limit_hits_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+          category: rate_limiting
+        annotations:
+          summary: "High rate limit hits"
+          description: "Rate limit hits are {{ $value }}/sec for endpoint {{ $labels.endpoint }}, indicating potential abuse"
+          runbook_url: "https://docs.chip-quality.com/runbooks/rate-limit-hits"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # External Service Errors
+      - alert: HighExternalServiceErrors
+        expr: rate(external_requests_total{status=~"5.."}[5m]) / rate(external_requests_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: external
+          category: errors
+        annotations:
+          summary: "High external service error rate"
+          description: "Error rate for external service {{ $labels.service }} is {{ $value | humanizePercentage }}, exceeding 10% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/external-errors"
+          dashboard: "https://grafana.chip-quality.com/d/system"
+      
+      # Authentication Failures
+      - alert: HighAuthenticationFailures
+        expr: rate(auth_attempts_total{result="failure"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: auth
+          category: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failures are {{ $value }}/sec, indicating potential security issue"
+          runbook_url: "https://docs.chip-quality.com/runbooks/auth-failures"
+          dashboard: "https://grafana.chip-quality.com/d/system"
