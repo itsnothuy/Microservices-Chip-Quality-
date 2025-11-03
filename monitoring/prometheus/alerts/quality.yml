@@ -1,0 +1,131 @@
+groups:
+  - name: quality_alerts
+    interval: 30s
+    rules:
+      # High Defect Rate Alert
+      - alert: HighDefectRate
+        expr: rate(inspection_defects_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: quality
+          category: defect_detection
+        annotations:
+          summary: "High defect rate detected"
+          description: "Defect rate is {{ $value | humanizePercentage }} which exceeds 5% threshold for product type {{ $labels.product_type }}"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-defect-rate"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
+      
+      # Critical Defect Rate Alert
+      - alert: CriticalDefectRate
+        expr: rate(inspection_defects_total[5m]) > 0.15
+        for: 1m
+        labels:
+          severity: critical
+          service: quality
+          category: defect_detection
+        annotations:
+          summary: "Critical defect rate detected"
+          description: "Defect rate is {{ $value | humanizePercentage }} which exceeds critical 15% threshold for product type {{ $labels.product_type }}"
+          runbook_url: "https://docs.chip-quality.com/runbooks/critical-defect-rate"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
+      
+      # Quality Score Dropped
+      - alert: QualityScoreDropped
+        expr: avg_over_time(quality_score[10m]) < 0.8
+        for: 5m
+        labels:
+          severity: critical
+          service: quality
+          category: quality_score
+        annotations:
+          summary: "Quality score below threshold"
+          description: "Average quality score dropped to {{ $value | humanize }} below 0.8 threshold for product type {{ $labels.product_type }}"
+          runbook_url: "https://docs.chip-quality.com/runbooks/low-quality-score"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
+      
+      # Inspection Backlog
+      - alert: InspectionBacklog
+        expr: inspection_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: inspection
+          category: throughput
+        annotations:
+          summary: "Inspection queue backlog"
+          description: "{{ $value }} inspections queued, exceeding normal capacity of 100"
+          runbook_url: "https://docs.chip-quality.com/runbooks/inspection-backlog"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
+      
+      # High Manual Review Rate
+      - alert: HighManualReviewRate
+        expr: manual_review_rate > 0.3
+        for: 10m
+        labels:
+          severity: warning
+          service: quality
+          category: manual_review
+        annotations:
+          summary: "High manual review rate"
+          description: "Manual review rate is {{ $value | humanizePercentage }} for product type {{ $labels.product_type }}, exceeding 30% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-manual-review"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
+      
+      # False Positive Rate Alert
+      - alert: HighFalsePositiveRate
+        expr: false_positive_rate > 0.10
+        for: 15m
+        labels:
+          severity: warning
+          service: ml_inference
+          category: model_accuracy
+        annotations:
+          summary: "High false positive rate detected"
+          description: "False positive rate is {{ $value | humanizePercentage }} for model {{ $labels.model_version }}, exceeding 10% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-false-positive"
+          dashboard: "https://grafana.chip-quality.com/d/ml_monitoring"
+      
+      # Compliance Violations
+      - alert: ComplianceViolations
+        expr: increase(compliance_violations_total[1h]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: quality
+          category: compliance
+        annotations:
+          summary: "Compliance violations detected"
+          description: "{{ $value }} compliance violations detected for regulation {{ $labels.regulation }}"
+          runbook_url: "https://docs.chip-quality.com/runbooks/compliance-violation"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
+      
+      # Inspection Failure Rate
+      - alert: HighInspectionFailureRate
+        expr: |
+          rate(inspections_failed_total[10m]) / 
+          (rate(inspections_passed_total[10m]) + rate(inspections_failed_total[10m])) > 0.50
+        for: 5m
+        labels:
+          severity: warning
+          service: inspection
+          category: failure_rate
+        annotations:
+          summary: "High inspection failure rate"
+          description: "Inspection failure rate is {{ $value | humanizePercentage }} for product type {{ $labels.product_type }}, exceeding 50% threshold"
+          runbook_url: "https://docs.chip-quality.com/runbooks/high-failure-rate"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
+      
+      # Quality Alerts Active
+      - alert: MultipleQualityAlertsActive
+        expr: sum(quality_alerts_active) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: quality
+          category: alert_storm
+        annotations:
+          summary: "Multiple quality alerts active"
+          description: "{{ $value }} quality alerts are currently active, indicating systemic issues"
+          runbook_url: "https://docs.chip-quality.com/runbooks/alert-storm"
+          dashboard: "https://grafana.chip-quality.com/d/quality"
