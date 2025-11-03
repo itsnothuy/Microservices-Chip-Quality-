@@ -452,7 +452,7 @@ class TestTritonIntegration:
         # Verify inference results
         predictions = response.as_numpy("output_probabilities")
         assert predictions.shape[1] == 3  # 3 classes: good, minor_defect, major_defect
-        assert np.sum(predictions[0]) ≈ 1.0  # Probabilities sum to 1
+        assert abs(np.sum(predictions[0]) - 1.0) < 0.001  # Probabilities sum to 1
         assert predictions[0][0] > 0.9  # High confidence for "good" class
     
     @pytest.mark.integration
