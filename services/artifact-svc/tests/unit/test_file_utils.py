@@ -80,7 +80,8 @@ def test_get_content_type():
     assert get_content_type("image.jpg") == "image/jpeg"
     assert get_content_type("document.pdf") == "application/pdf"
     assert get_content_type("data.csv") == "text/csv"
-    assert get_content_type("unknown.xyz") == "application/octet-stream"
+    # Unknown extensions should return octet-stream
+    assert get_content_type("unknown.unknown123") == "application/octet-stream"
 
 
 def test_format_file_size():

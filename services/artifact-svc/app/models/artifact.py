@@ -71,8 +71,8 @@ class Artifact(Base):
         index=True
     )
     
-    # Metadata
-    metadata = Column(JSONB, nullable=False, default=dict)
+    # Metadata (use artifact_metadata to avoid SQLAlchemy reserved name conflict)
+    artifact_metadata = Column("metadata", JSONB, nullable=False, default=dict)
     tags = Column(ARRAY(Text), default=list)
     
     # Timestamps

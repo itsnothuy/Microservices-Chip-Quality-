@@ -108,7 +108,7 @@ class ArtifactService:
                 file_size_bytes=file_size,
                 checksum_sha256=checksum,
                 storage_location=StorageLocation.PRIMARY,
-                metadata=artifact_data.metadata,
+                artifact_metadata=artifact_data.metadata,
                 tags=artifact_data.tags,
                 created_at=datetime.utcnow()
             )
@@ -263,7 +263,7 @@ class ArtifactService:
         
         # Update fields
         if update_data.metadata is not None:
-            artifact.metadata = update_data.metadata
+            artifact.artifact_metadata = update_data.metadata
         if update_data.tags is not None:
             artifact.tags = update_data.tags
         if update_data.storage_location is not None:
