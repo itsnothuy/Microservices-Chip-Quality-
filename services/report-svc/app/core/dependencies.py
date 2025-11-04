@@ -37,19 +37,30 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
-# Session factory
-async_session_factory = sessionmaker(
-    bind=get_engine(),
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
+# Session factory - lazy initialization
+_async_session_factory = None
+
+
+def get_async_session_factory():
+    """Get or create the async session factory"""
+    global _async_session_factory
+    
+    if _async_session_factory is None:
+        _async_session_factory = sessionmaker(
+            bind=get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+        )
+    
+    return _async_session_factory
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency for database session"""
-    async with async_session_factory() as session:
+    factory = get_async_session_factory()
+    async with factory() as session:
         try:
             yield session
             await session.commit()
